@@ -20,6 +20,10 @@ export function DemoDataPanel() {
   const [progress, setProgress] = useState('')
   const [seeded, setSeeded] = useState(isDemoSeededLocally())
 
+  if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo') {
+    return null
+  }
+
   const handleGenerate = async () => {
     setLoading(true)
     setProgress('Generating ERP demo dataset…')

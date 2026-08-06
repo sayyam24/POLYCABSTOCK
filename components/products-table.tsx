@@ -58,7 +58,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
               <TableCell className="font-mono">{p.sku}</TableCell>
               <TableCell>{p.name}</TableCell>
               <TableCell><Badge variant="secondary">{p.category}</Badge></TableCell>
-              <TableCell className="text-right">${p.unitPrice}</TableCell>
+              <TableCell className="text-right">₹{p.unitPrice}</TableCell>
             </TableRow>
           ))}
         </TableBody>

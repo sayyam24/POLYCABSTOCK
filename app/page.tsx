@@ -15,13 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { UserRole } from '@/lib/types'
-import { DEMO_CREDENTIALS, getDashboardPath, login } from '@/lib/auth'
+import { getDashboardPath, login } from '@/lib/auth'
 import { useAuth } from '@/components/auth-provider'
 import { ROLE_LABELS } from '@/lib/permissions'
 
 const ALL_ROLES: UserRole[] = [
-  'admin',
-  'depo',
   'distributor',
   'sub_distributor',
   'retailer',
@@ -30,36 +28,162 @@ const ALL_ROLES: UserRole[] = [
 export default function LoginPage() {
   const router = useRouter()
   const { refresh } = useAuth()
-  const [email, setEmail] = useState(DEMO_CREDENTIALS.admin.email)
-  const [password, setPassword] = useState(DEMO_CREDENTIALS.admin.password)
+  const [isSignup, setIsSignup] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [roleHint, setRoleHint] = useState<UserRole | 'auto'>('auto')
+  const [signupRole, setSignupRole] = useState<UserRole>('retailer')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const fillDemo = (role: UserRole) => {
-    setRoleHint(role)
-    setEmail(DEMO_CREDENTIALS[role].email)
-    setPassword(DEMO_CREDENTIALS[role].password)
-    setError('')
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
-    const expectedRole = roleHint === 'auto' ? undefined : roleHint
-    const result = await login(email, password, expectedRole)
+    if (isSignup) {
+      // Signup logic - entirely client-side
+      if (!name.trim()) {
+        setError('Name is required')
+        setIsLoading(false)
+        return
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters')
+        setIsLoading(false)
+        return
+      }
 
-    if (!result.success || !result.session) {
-      setError(result.error ?? 'Login failed')
-      setIsLoading(false)
-      return
+      try {
+        // Debug environment variables
+        console.log('Signup: Environment check', {
+          NEXT_PUBLIC_DATA_BACKEND: process.env.NEXT_PUBLIC_DATA_BACKEND,
+          MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'NOT SET'
+        })
+
+        // If MongoDB is configured, use MongoDB signup
+        // Note: MONGODB_URI is server-side only, so we only check NEXT_PUBLIC_DATA_BACKEND
+        if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo') {
+          console.log('Signup: Using MongoDB backend')
+          const response = await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email.trim(),
+              password,
+              name: name.trim(),
+              role: signupRole
+            })
+          })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            setError(data.error || 'Signup failed')
+            setIsLoading(false)
+            return
+          }
+
+          // Show success message and switch to login mode
+          setError('Account created successfully! Please sign in with your credentials.')
+          setIsSignup(false) // Switch back to login mode
+          setIsLoading(false)
+          return
+        }
+
+        // Fallback to local database for non-MongoDB mode
+        const { loadDatabase } = await import('@/lib/db/local-db')
+        const { firestoreId, isoNow } = await import('@/lib/firebase/utils')
+        const { setLocalCredential } = await import('@/lib/db/local-credentials')
+        const { DB_KEY } = await import('@/lib/db/local-db')
+
+        const localDb = loadDatabase()
+        console.log('Signup: Current user count:', localDb.users.length)
+
+        // Check if email already exists
+        const existingUser = localDb.users.find(
+          (u) => u.email.toLowerCase() === email.toLowerCase()
+        )
+        if (existingUser) {
+          setError('Email already registered')
+          setIsLoading(false)
+          return
+        }
+
+        // Create new organization and user
+        const orgId = firestoreId('org')
+        const userId = firestoreId('user')
+        const ts = isoNow()
+
+        const newOrg = {
+          id: orgId,
+          name: `${name}'s Organization`,
+          type: signupRole,
+          parentId: null,
+          location: '',
+          contact: email,
+          ownerUserId: userId,
+          createdAt: ts,
+        }
+
+        const newUser = {
+          id: userId,
+          authUid: userId,
+          email: email.toLowerCase(),
+          name: name.trim(),
+          role: signupRole,
+          status: 'approved' as const,
+          parentId: null,
+          orgId,
+          location: '',
+          contact: email,
+          createdAt: ts,
+          updatedAt: ts,
+        }
+
+        // Update local database
+        localDb.organizations.push(newOrg)
+        localDb.users.push(newUser)
+
+        console.log('Signup: Saving to localStorage, new user count:', localDb.users.length)
+        localStorage.setItem(DB_KEY, JSON.stringify(localDb))
+        console.log('Signup: Saved to localStorage')
+
+        // Verify save
+        const savedDb = loadDatabase()
+        console.log('Signup: Verification - user count after save:', savedDb.users.length)
+        const savedUser = savedDb.users.find(u => u.email === email.toLowerCase())
+        console.log('Signup: Verification - user found after save:', !!savedUser)
+
+        // Store credentials for login
+        setLocalCredential(email.toLowerCase(), password)
+        console.log('Signup: Credentials stored')
+
+        // Show success message and switch to login mode
+        setError('Account created successfully! Please sign in with your credentials.')
+        setIsSignup(false) // Switch back to login mode
+        setIsLoading(false)
+        return
+      } catch (err) {
+        setError('Signup failed. Please try again.')
+        setIsLoading(false)
+      }
+    } else {
+      // Login logic
+      const expectedRole = roleHint === 'auto' ? undefined : roleHint
+      const result = await login(email, password, expectedRole)
+
+      if (!result.success || !result.session) {
+        setError(result.error ?? 'Login failed')
+        setIsLoading(false)
+        return
+      }
+
+      refresh()
+      router.push(getDashboardPath(result.session.role))
     }
-
-    refresh()
-    router.push(getDashboardPath(result.session.role))
   }
 
   return (
@@ -84,18 +208,6 @@ export default function LoginPage() {
             <li>Each level receives, confirms, then sends downstream</li>
             <li>Distributor must attach retailer bill copy on send</li>
           </ol>
-          <div className="flex flex-wrap gap-2 pt-2">
-            {ALL_ROLES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => fillDemo(r)}
-                className="rounded-lg border border-sidebar-border px-3 py-1.5 text-xs text-sidebar-foreground hover:bg-sidebar-accent"
-              >
-                Demo {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
         </div>
         <p className="text-sm text-sidebar-foreground/50">
           Admin: User Management · Depo: Stock &amp; Send · Distributor → Retailer chain
@@ -105,36 +217,49 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-4 bg-background">
         <Card className="w-full max-w-lg border-0 shadow-xl">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Sign in</CardTitle>
+            <CardTitle className="text-2xl">{isSignup ? 'Create account' : 'Sign in'}</CardTitle>
             <CardDescription>
-              Demo mode — use the credentials below or pick a role
+              {isSignup
+                ? 'Enter your details to create a new account'
+                : 'Enter your credentials to access your account'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-5 rounded-lg border bg-muted/50 p-3 text-sm space-y-2">
-              <p className="font-medium">Demo login (pre-filled)</p>
-              <p>
-                <span className="text-muted-foreground">Email:</span>{' '}
-                <code className="font-mono text-xs">{DEMO_CREDENTIALS.admin.email}</code>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Password:</span>{' '}
-                <code className="font-mono text-xs">{DEMO_CREDENTIALS.admin.password}</code>
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1 lg:hidden">
-                {ALL_ROLES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => fillDemo(r)}
-                    className="rounded-md border px-2 py-1 text-xs hover:bg-background"
-                  >
-                    {ROLE_LABELS[r]}
-                  </button>
-                ))}
-              </div>
-            </div>
             <form onSubmit={handleSubmit} className="space-y-5">
+              {isSignup && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Full Name</Label>
+                    <Input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="h-12"
+                      placeholder="John Doe"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select
+                      value={signupRole}
+                      onValueChange={(v) => setSignupRole(v as UserRole)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_ROLES.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input
@@ -143,7 +268,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-12"
                   placeholder="you@company.com"
-                  autoComplete="email"
+                  autoComplete={isSignup ? 'username' : 'email'}
                   required
                 />
               </div>
@@ -168,29 +293,31 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Role (optional)</Label>
-                <Select
-                  value={roleHint}
-                  onValueChange={(v) => setRoleHint(v as UserRole | 'auto')}
-                >
-                  <SelectTrigger className="h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto-detect from account</SelectItem>
-                    {ALL_ROLES.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground flex items-start gap-1">
-                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  Leave on Auto-detect unless you have multiple roles on one email.
-                </p>
-              </div>
+              {!isSignup && (
+                <div className="space-y-2">
+                  <Label>Role (optional)</Label>
+                  <Select
+                    value={roleHint}
+                    onValueChange={(v) => setRoleHint(v as UserRole | 'auto')}
+                  >
+                    <SelectTrigger className="h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto-detect from account</SelectItem>
+                      {ALL_ROLES.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground flex items-start gap-1">
+                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    Leave on Auto-detect unless you have multiple roles on one email.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
@@ -199,13 +326,32 @@ export default function LoginPage() {
               )}
 
               <Button type="submit" className="w-full h-12" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign in with demo account'}
+                {isLoading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign up' : 'Sign in')}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                Admin creates accounts at{' '}
-                <span className="font-medium text-foreground">User Management</span>
+                {isSignup ? 'Already have an account? ' : "Don't have an account? "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignup(!isSignup)
+                    setError('')
+                    setName('')
+                    setEmail('')
+                    setPassword('')
+                  }}
+                  className="font-medium text-foreground hover:underline"
+                >
+                  {isSignup ? 'Sign in' : 'Sign up'}
+                </button>
               </p>
+
+              {!isSignup && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Admin creates accounts at{' '}
+                  <span className="font-medium text-foreground">User Management</span>
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

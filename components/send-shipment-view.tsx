@@ -36,9 +36,41 @@ export function SendShipmentView({ title }: SendShipmentViewProps) {
 
   const handleSubmit = async (data: ShipmentFormData) => {
     if (!session) return
-    await electroTrackService.createShipment(session, data)
-    refresh()
-    toast.success(`Bill ${data.invoiceNumber} sent — waiting for receiver to confirm`)
+    
+    try {
+      // Get receiver details from the receivers array
+      const receiver = receivers.find(r => r.id === data.receiverOrgId)
+      
+      // Use MongoDB API instead of client-side service
+      const res = await fetch('/api/create-shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderOrgId: session.orgId,
+          senderRole: session.role,
+          senderName: session.name,
+          senderId: session.userId,
+          receiverOrgId: data.receiverOrgId,
+          receiverRole: receiver?.type || 'depo',
+          receiverName: receiver?.name || 'Unknown',
+          receiverId: receiver?.ownerUserId || null,
+          items: data.items,
+          invoiceNumber: data.invoiceNumber,
+          invoiceFileName: data.invoiceFileName,
+          invoiceDataUrl: data.invoiceDataUrl
+        })
+      })
+
+      if (res.ok) {
+        refresh()
+        toast.success(`Bill ${data.invoiceNumber} sent — waiting for receiver to confirm`)
+      } else {
+        const errorData = await res.json()
+        toast.error(errorData.error || 'Failed to send shipment')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send shipment')
+    }
   }
 
   if (!session || !receiverRole) return null

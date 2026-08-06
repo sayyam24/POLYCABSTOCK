@@ -28,8 +28,6 @@ export const DEMO_CREDENTIALS: Record<
   UserRole,
   { email: string; password: string }
 > = {
-  admin: { email: 'admin@electrotrack.com', password: 'admin123' },
-  depo: { email: 'depo@electrotrack.com', password: 'depo123' },
   distributor: { email: 'distributor@electrotrack.com', password: 'dist123' },
   sub_distributor: { email: 'subdistributor@electrotrack.com', password: 'sub123' },
   retailer: { email: 'retailer@electrotrack.com', password: 'retail123' },
@@ -90,12 +88,14 @@ function findLocalUserByEmail(
   email: string,
   expectedRole?: UserRole,
 ): AuthSession | null {
-  const user = loadDatabase().users.find(
+  const db = loadDatabase()
+  const user = db.users.find(
     (u) =>
       u.email.toLowerCase() === email.trim().toLowerCase() &&
       u.status === 'approved' &&
       (!expectedRole || u.role === expectedRole),
   )
+  console.log('findLocalUserByEmail:', { email, expectedRole, userCount: db.users.length, found: !!user })
   return user ? userToSession(user) : null
 }
 
@@ -111,10 +111,6 @@ async function resolveSessionFromFirebaseUser(
         (await electroTrackService.getUserByAuthUid(firebaseUser.uid)) ??
         (await electroTrackService.getUserByEmail(email))
 
-      if (!profile && expectedRole === 'admin') {
-        profile = await ensureFirestoreProfile(firebaseUser, 'admin')
-      }
-
       if (profile) {
         if (profile.status !== 'approved') {
           return { success: false, error: 'Account is not approved yet' }
@@ -124,14 +120,6 @@ async function resolveSessionFromFirebaseUser(
           return {
             success: false,
             error: `This email is a ${profile.role.replace('_', ' ')} account. Select "${profile.role.replace('_', ' ')}" on the login screen, or leave role auto-detected.`,
-          }
-        }
-
-        if (profile.role === 'admin') {
-          try {
-            await seedFirestoreIfEmpty()
-          } catch {
-            // catalog may exist
           }
         }
 
@@ -175,7 +163,10 @@ function loginWithLocalDemo(
   password: string,
   expectedRole?: UserRole,
 ): { success: boolean; error?: string; session?: AuthSession } {
-  ensureDemoCredentials()
+  // Only ensure demo credentials if this is actually a demo login
+  if (isDemoEmail(normalizedEmail)) {
+    ensureDemoCredentials()
+  }
   disableCloudFirestore('Demo login — using local data')
 
   if (!verifyLocalCredential(normalizedEmail, password)) {
@@ -202,6 +193,51 @@ function loginWithLocalDemo(
   return { success: true, session }
 }
 
+async function loginWithMongoDB(
+  normalizedEmail: string,
+  password: string,
+  expectedRole?: UserRole,
+): Promise<{ success: boolean; error?: string; session?: AuthSession }> {
+  // Only run on server side
+  if (typeof window !== 'undefined') {
+    return { success: false, error: 'MongoDB login not available in browser' }
+  }
+
+  try {
+    const { getMongoState } = await import('@/lib/db/mongo-state')
+    const state = await getMongoState()
+
+    const user = state.users.find(
+      (u) =>
+        u.email.toLowerCase() === normalizedEmail &&
+        u.status === 'approved' &&
+        (!expectedRole || u.role === expectedRole),
+    )
+
+    if (!user) {
+      return {
+        success: false,
+        error: expectedRole
+          ? `No approved ${expectedRole} account for this email.`
+          : 'No account for this email. Please sign up first.',
+      }
+    }
+
+    // Verify password using local credentials
+    const { verifyLocalCredential } = await import('@/lib/db/local-credentials')
+    if (!verifyLocalCredential(normalizedEmail, password)) {
+      return { success: false, error: 'Invalid email or password' }
+    }
+
+    const session = userToSession(user)
+    setSession(session)
+    return { success: true, session }
+  } catch (error) {
+    console.error('MongoDB login error:', error)
+    return { success: false, error: 'Login failed. Please try again.' }
+  }
+}
+
 export async function login(
   email: string,
   password: string,
@@ -209,9 +245,48 @@ export async function login(
 ): Promise<{ success: boolean; error?: string; session?: AuthSession }> {
   const normalizedEmail = email.trim().toLowerCase()
 
+  // If MongoDB is configured, use MongoDB login
+  // Note: MONGODB_URI is server-side only, so we only check NEXT_PUBLIC_DATA_BACKEND
+  if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo') {
+    console.log('login: using MongoDB backend')
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail, password, expectedRole })
+      })
+      const data = await response.json()
+      if (response.ok && data.session) {
+        setSession(data.session)
+        return { success: true, session: data.session }
+      }
+      return { success: false, error: data.error || 'Login failed' }
+    } catch (err) {
+      console.error('MongoDB login error:', err)
+      return { success: false, error: 'Login failed. Please try again.' }
+    }
+  }
+
+  // Fallback to local database for demo mode
   if (isDemoLogin(normalizedEmail, password)) {
     return loginWithLocalDemo(normalizedEmail, password, expectedRole)
   }
+
+  // Try local database login (for non-Mongodb mode)
+  console.log('login: checking local database for', normalizedEmail)
+  const localSession = findLocalUserByEmail(normalizedEmail, expectedRole)
+  if (localSession) {
+    console.log('login: found user in local database')
+    if (verifyLocalCredential(normalizedEmail, password)) {
+      console.log('login: credentials verified')
+      setSession(localSession)
+      return { success: true, session: localSession }
+    } else {
+      console.log('login: credentials invalid')
+      return { success: false, error: 'Invalid email or password' }
+    }
+  }
+  console.log('login: user not found in local database')
 
   if (isFirebaseConfigured()) {
     const auth = getFirebaseAuth()
@@ -236,22 +311,8 @@ export async function login(
       } catch (signInErr) {
         const signInMsg =
           signInErr instanceof Error ? signInErr.message : ''
-        const isDemoAdmin =
-          normalizedEmail === DEMO_CREDENTIALS.admin.email.toLowerCase()
-        if (
-          isDemoAdmin &&
-          (signInMsg.includes('user-not-found') ||
-            signInMsg.includes('invalid-credential'))
-        ) {
-          await createAuthUserViaRest(normalizedEmail, password)
-          credential = await signInWithEmailAndPassword(
-            auth,
-            normalizedEmail,
-            password,
-          )
-        } else {
-          throw signInErr
-        }
+        // Skip auto-creation for demo accounts since admin role is removed
+        throw signInErr
       }
 
       return resolveSessionFromFirebaseUser(credential.user, expectedRole)
@@ -281,7 +342,7 @@ export async function login(
         return {
           success: false,
           error:
-            'No account for this email. Admin must create your account first (Admin → User Management).',
+            'No account for this email. Please sign up first.',
         }
       }
       return { success: false, error: message }

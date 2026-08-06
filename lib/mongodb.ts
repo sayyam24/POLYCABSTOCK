@@ -19,9 +19,10 @@ export async function getMongoClient(): Promise<MongoClient> {
 
   if (!global.__electrotrackMongoClient) {
     global.__electrotrackMongoClient = new MongoClient(process.env.MONGODB_URI, {
-      // Fail fast in dev when Mongo isn't running.
-      serverSelectionTimeoutMS: 2500,
-      connectTimeoutMS: 2500,
+      // Increased timeout for production use
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 30000,
     })
   }
 

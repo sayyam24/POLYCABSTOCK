@@ -1,20 +1,16 @@
 import type { UserRole } from '@/lib/types'
 
-/** Who can create which roles (factory → depo → sub dist → distributor → retailer) */
+/** Who can create which roles (distributor → sub_distributor → retailer) */
 export const ROLE_CREATION_PERMISSIONS: Record<UserRole, UserRole[]> = {
-  admin: ['admin', 'depo', 'sub_distributor', 'distributor', 'retailer'],
-  depo: ['sub_distributor'],
-  sub_distributor: ['distributor'],
-  distributor: ['retailer'],
+  distributor: ['sub_distributor', 'retailer'],
+  sub_distributor: ['retailer'],
   retailer: [],
 }
 
 /** Valid shipment routes in the supply chain */
 export const SHIPMENT_ROUTES: [UserRole, UserRole][] = [
-  ['admin', 'depo'],
-  ['depo', 'sub_distributor'],
-  ['sub_distributor', 'distributor'],
-  ['distributor', 'retailer'],
+  ['distributor', 'sub_distributor'],
+  ['sub_distributor', 'retailer'],
 ]
 
 export function canCreateRole(creatorRole: UserRole, targetRole: UserRole): boolean {
@@ -43,13 +39,11 @@ export function roleToPath(role: UserRole): string {
 export function pathToRole(path: string): UserRole | null {
   const segment = path.split('/').filter(Boolean)[0]
   if (segment === 'sub-distributor') return 'sub_distributor'
-  const roles: UserRole[] = ['admin', 'depo', 'distributor', 'retailer']
+  const roles: UserRole[] = ['distributor', 'retailer']
   return roles.includes(segment as UserRole) ? (segment as UserRole) : null
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  admin: 'Factory / Admin',
-  depo: 'Depo',
   distributor: 'Distributor',
   sub_distributor: 'Sub Distributor',
   retailer: 'Retailer',

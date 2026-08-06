@@ -1,6 +1,4 @@
 export type UserRole =
-  | 'admin'
-  | 'depo'
   | 'distributor'
   | 'sub_distributor'
   | 'retailer'
@@ -12,6 +10,7 @@ export type ShipmentStatus =
   | 'sent'
   | 'in_transit'
   | 'received'
+  | 'partially_received'
   | 'rejected'
   | 'returned'
 
@@ -35,6 +34,7 @@ export interface User {
   contact?: string
   createdAt: string
   updatedAt: string
+  password?: string // Optional password field for MongoDB auth
 }
 
 export interface Organization {
@@ -99,6 +99,23 @@ export interface Shipment {
   createdAt: string
   updatedAt: string
   receivedAt?: string
+  timeline?: ShipmentTimeline[]
+}
+
+export type ShipmentTimelineEvent = 
+  | 'invoice_uploaded'
+  | 'parsed_successfully'
+  | 'shipment_created'
+  | 'shipment_received'
+  | 'shipment_returned'
+  | 'shipment_cancelled'
+
+export interface ShipmentTimeline {
+  event: ShipmentTimelineEvent
+  timestamp: string
+  userId?: string
+  userName?: string
+  notes?: string
 }
 
 export interface AppNotification {
@@ -175,4 +192,192 @@ export interface CreateReturnInput {
   shipmentId: string
   items: ShipmentItem[]
   reason?: string
+}
+
+export interface RetailerPurchase {
+  id: string
+  invoiceNumber: string
+  invoiceDate: string
+  retailerOrgId: string
+  retailerName: string
+  senderOrgId: string
+  senderRole: UserRole
+  productId: string
+  productName: string
+  quantity: number
+  unit: string
+  createdAt: string
+}
+
+export type StockActionType = 
+  | 'opening_stock'
+  | 'sent'
+  | 'received'
+  | 'return'
+  | 'manual_entry'
+  | 'adjustment'
+  | 'invoice_upload'
+  | 'manual_return'
+
+export interface StockLedger {
+  id: string
+  dateTime: string
+  productId: string
+  productName: string
+  productCode: string
+  userId: string
+  userName: string
+  userRole: UserRole
+  orgId: string
+  actionType: StockActionType
+  referenceNumber: string // Invoice/Shipment ID
+  quantityIn: number
+  quantityOut: number
+  closingBalance: number
+  remarks?: string
+}
+
+export interface ProductAlias {
+  id: string
+  aliasName: string // Extracted Product Name from invoice
+  productId: string
+  productName: string // Actual Product Name from Product Master
+  createdBy: string // User ID
+  createdDate: string
+  lastUsedDate: string
+  usageCount: number
+}
+
+export type BulkInvoiceStatus = 
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'duplicate'
+  | 'pending_mapping'
+  | 'ocr_failed'
+  | 'corrupted'
+  | 'invalid_format'
+
+export type BulkInvoiceFailureReason = 
+  | 'ocr_failed'
+  | 'product_not_matched'
+  | 'duplicate_invoice'
+  | 'corrupted_pdf'
+  | 'invalid_format'
+  | 'network_error'
+  | 'validation_error'
+
+export interface BulkUploadInvoice {
+  id: string
+  batchId: string
+  invoiceNumber: string
+  fileName: string
+  pdfData: string // base64 encoded
+  status: BulkInvoiceStatus
+  failureReason?: BulkInvoiceFailureReason
+  failureDetails?: string
+  parsedData?: {
+    invoiceNumber: string
+    invoiceDate: string
+    retailerName: string
+    items: Array<{
+      productName: string
+      productCode?: string
+      quantity: number
+      unit: string
+      matchedProductId?: string
+      matchedProductName?: string
+    }>
+  }
+  retailerOrgId?: string
+  retailerName?: string
+  stockUpdated: boolean
+  stockUpdatedDate?: string
+  retryCount: number
+  lastRetryDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BulkUploadBatch {
+  id: string
+  batchId: string // Unique batch identifier
+  uploadedBy: string // User ID
+  uploadedByName: string
+  uploadDate: string
+  totalInvoices: number
+  successCount: number
+  failedCount: number
+  duplicateCount: number
+  pendingMappingCount: number
+  stockUpdatedCount: number
+  status: 'processing' | 'completed' | 'partial_success' | 'failed'
+  invoices: BulkUploadInvoice[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdjustmentReason = 
+  | 'physical_count_correction'
+  | 'damaged_stock'
+  | 'missing_stock'
+  | 'expired_stock'
+  | 'manual_correction'
+  | 'other'
+
+export interface StockAdjustment {
+  id: string
+  orgId: string
+  orgType: UserRole
+  productId: string
+  productName: string
+  productCode: string
+  systemStock: number
+  physicalStock: number
+  difference: number
+  adjustmentQuantity: number
+  reason: AdjustmentReason
+  remarks?: string
+  adjustedBy: string // User ID
+  adjustedByName: string
+  adjustedDate: string
+  createdAt: string
+}
+
+export type ShortageReason = 
+  | 'damaged_during_transport'
+  | 'missing_items'
+  | 'wrong_quantity_sent'
+  | 'other'
+
+export interface PartialReceiveItem {
+  productId: string
+  productName: string
+  dispatchedQuantity: number
+  receivedQuantity: number
+  shortageQuantity: number
+}
+
+export interface ShipmentShortage {
+  id: string
+  shipmentId: string
+  shipmentNumber: string
+  invoiceNumber: string
+  senderOrgId: string
+  senderName: string
+  receiverOrgId: string
+  receiverName: string
+  productId: string
+  productName: string
+  dispatchedQuantity: number
+  receivedQuantity: number
+  shortageQuantity: number
+  reason: ShortageReason
+  remarks?: string
+  status: 'pending' | 'resolved' | 'closed'
+  resolvedBy?: string
+  resolvedByName?: string
+  resolvedDate?: string
+  createdAt: string
+  updatedAt: string
 }

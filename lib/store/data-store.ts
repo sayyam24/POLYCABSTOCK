@@ -1,8 +1,14 @@
 import type {
   AppNotification,
+  BulkUploadBatch,
   Organization,
   Product,
+  ProductAlias,
+  RetailerPurchase,
   Shipment,
+  ShipmentShortage,
+  StockAdjustment,
+  StockLedger,
   StockRecord,
   StockReturn,
   TransactionHistory,
@@ -18,6 +24,12 @@ export interface AppDataState {
   returns: StockReturn[]
   notifications: AppNotification[]
   transactionHistory: TransactionHistory[]
+  retailerPurchases: RetailerPurchase[]
+  stockLedger: StockLedger[]
+  productAliases: ProductAlias[]
+  bulkUploadBatches: BulkUploadBatch[]
+  stockAdjustments: StockAdjustment[]
+  shipmentShortages: ShipmentShortage[]
   isHydrated: boolean
 }
 
@@ -30,6 +42,12 @@ const emptyState: AppDataState = {
   returns: [],
   notifications: [],
   transactionHistory: [],
+  retailerPurchases: [],
+  stockLedger: [],
+  productAliases: [],
+  bulkUploadBatches: [],
+  stockAdjustments: [],
+  shipmentShortages: [],
   isHydrated: false,
 }
 

@@ -38,6 +38,7 @@ interface StoreContextValue {
   getOrgStock: (orgId: string) => StockRecord[]
   getIncomingShipments: (orgId: string) => Shipment[]
   getOutgoingShipments: (orgId: string) => Shipment[]
+  getProducts: () => any[]
 }
 
 const StoreContext = React.createContext<StoreContextValue | null>(null)
@@ -71,13 +72,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo') {
       let cancelled = false
-      void (async () => {
+
+      const hydrateFromMongo = async () => {
         try {
           const res = await fetch('/api/state', { cache: 'no-store' })
           if (!res.ok) throw new Error(`Failed to load DB (${res.status})`)
           const db = (await res.json()) as DatabaseState
           if (cancelled) return
-          // Keep local DB in sync for existing service logic.
           localStorage.setItem(DB_KEY, JSON.stringify(db))
           setDataStore({
             users: db.users,
@@ -94,13 +95,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           bump()
         } catch (err) {
           console.error('Mongo hydrate failed:', err)
-          // fallback to local demo dataset
-          hydrateLocalStore()
-          setIsReady(true)
-          bump()
+          if (!cancelled) {
+            setIsReady(true)
+            bump()
+          }
         }
-      })()
-      return subscribeDataStore(bump)
+      }
+
+      void hydrateFromMongo()
+      const interval = setInterval(() => void hydrateFromMongo(), 5000)
+
+      return () => {
+        cancelled = true
+        clearInterval(interval)
+      }
     }
 
     if (!isFirebaseConfigured()) {
@@ -160,6 +168,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<StoreContextValue>(() => {
     void version
+    // When MongoDB is enabled and data store is hydrated, use data store directly
+    if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo' && data.isHydrated) {
+      return {
+        version,
+        isReady,
+        refresh,
+        users: data.users,
+        stock: data.stock,
+        shipments: data.shipments,
+        notifications: data.notifications,
+        transactions: data.transactionHistory,
+        getOrgStock: (orgId) => data.stock.filter(s => s.orgId === orgId),
+        getIncomingShipments: (orgId) => data.shipments.filter(s => s.receiverOrgId === orgId),
+        getOutgoingShipments: (orgId) => data.shipments.filter(s => s.senderOrgId === orgId),
+        getProducts: () => data.products,
+      }
+    }
+    // Otherwise fall back to service
     return {
       version,
       isReady,
@@ -178,6 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         electroTrackService.getShipments({ receiverOrgId: orgId }),
       getOutgoingShipments: (orgId) =>
         electroTrackService.getShipments({ senderOrgId: orgId }),
+      getProducts: () => data.products.length ? data.products : electroTrackService.getProducts(),
     }
   }, [version, refresh, isReady, data])
 

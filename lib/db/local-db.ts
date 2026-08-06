@@ -1,12 +1,18 @@
 import type {
   AppNotification,
+  BulkUploadBatch,
   Organization,
   Product,
+  ProductAlias,
   Shipment,
+  ShipmentShortage,
+  StockAdjustment,
+  StockLedger,
   StockRecord,
   StockReturn,
   TransactionHistory,
   User,
+  RetailerPurchase,
 } from '@/lib/types'
 import { getCatalogProducts } from '@/lib/catalog/products'
 import {
@@ -23,6 +29,12 @@ export interface DatabaseState {
   returns: StockReturn[]
   notifications: AppNotification[]
   transactionHistory: TransactionHistory[]
+  retailerPurchases: RetailerPurchase[]
+  stockLedger: StockLedger[]
+  productAliases: ProductAlias[]
+  bulkUploadBatches: BulkUploadBatch[]
+  stockAdjustments: StockAdjustment[]
+  shipmentShortages: ShipmentShortage[]
 }
 
 export const DB_KEY = 'electrotrack_db_v2'
@@ -39,22 +51,24 @@ export function createSeedDatabase(): DatabaseState {
   const products = getCatalogProducts()
 
   const orgs: Organization[] = [
-    { id: 'org_admin', name: 'Factory HQ', type: 'admin', parentId: null, location: 'Factory', contact: '', ownerUserId: 'user_admin', createdAt: now() },
-    { id: 'org_depo1', name: 'Central Depo', type: 'depo', parentId: 'org_admin', location: 'Mumbai', contact: '+91 90000 00001', ownerUserId: 'user_depo1', createdAt: now() },
-    { id: 'org_sub1', name: 'East Sub Distributor', type: 'sub_distributor', parentId: 'org_depo1', location: 'Kolkata', contact: '+91 90000 00003', ownerUserId: 'user_sub1', createdAt: now() },
-    { id: 'org_dist1', name: 'North Distributor', type: 'distributor', parentId: 'org_sub1', location: 'Delhi', contact: '+91 90000 00002', ownerUserId: 'user_dist1', createdAt: now() },
-    { id: 'org_retail1', name: 'TechMart Store', type: 'retailer', parentId: 'org_dist1', location: 'Pune', contact: '+91 90000 00004', ownerUserId: 'user_retail1', createdAt: now() },
+    { id: 'org_dist1', name: 'North Distributor', type: 'distributor', parentId: null, location: 'Delhi', contact: '+91 90000 00002', ownerUserId: 'user_dist1', createdAt: now() },
+    { id: 'org_sub1', name: 'East Sub Distributor', type: 'sub_distributor', parentId: 'org_dist1', location: 'Kolkata', contact: '+91 90000 00003', ownerUserId: 'user_sub1', createdAt: now() },
+    { id: 'org_retail1', name: 'TechMart Store', type: 'retailer', parentId: 'org_sub1', location: 'Pune', contact: '+91 90000 00004', ownerUserId: 'user_retail1', createdAt: now() },
   ]
 
   const users: User[] = [
-    { id: 'user_admin', email: 'admin@electrotrack.com', name: 'Factory Admin', role: 'admin', status: 'approved', parentId: null, orgId: 'org_admin', location: 'Factory', contact: '', createdAt: now(), updatedAt: now() },
-    { id: 'user_depo1', email: 'depo@electrotrack.com', name: 'Central Depo', role: 'depo', status: 'approved', parentId: 'user_admin', orgId: 'org_depo1', location: 'Mumbai', contact: '+91 90000 00001', createdAt: now(), updatedAt: now() },
-    { id: 'user_sub1', email: 'subdistributor@electrotrack.com', name: 'East Sub Distributor', role: 'sub_distributor', status: 'approved', parentId: 'user_depo1', orgId: 'org_sub1', location: 'Kolkata', contact: '+91 90000 00003', createdAt: now(), updatedAt: now() },
-    { id: 'user_dist1', email: 'distributor@electrotrack.com', name: 'North Distributor', role: 'distributor', status: 'approved', parentId: 'user_sub1', orgId: 'org_dist1', location: 'Delhi', contact: '+91 90000 00002', createdAt: now(), updatedAt: now() },
-    { id: 'user_retail1', email: 'retailer@electrotrack.com', name: 'TechMart Store', role: 'retailer', status: 'approved', parentId: 'user_dist1', orgId: 'org_retail1', location: 'Pune', contact: '+91 90000 00004', createdAt: now(), updatedAt: now() },
+    { id: 'user_dist1', email: 'distributor@electrotrack.com', name: 'North Distributor', role: 'distributor', status: 'approved', parentId: null, orgId: 'org_dist1', location: 'Delhi', contact: '', createdAt: now(), updatedAt: now() },
+    { id: 'user_sub1', email: 'subdistributor@electrotrack.com', name: 'East Sub Distributor', role: 'sub_distributor', status: 'approved', parentId: 'user_dist1', orgId: 'org_sub1', location: 'Kolkata', contact: '+91 90000 00003', createdAt: now(), updatedAt: now() },
+    { id: 'user_retail1', email: 'retailer@electrotrack.com', name: 'TechMart Store', role: 'retailer', status: 'approved', parentId: 'user_sub1', orgId: 'org_retail1', location: 'Pune', contact: '+91 90000 00004', createdAt: now(), updatedAt: now() },
   ]
 
   const stock: StockRecord[] = []
+  const retailerPurchases: RetailerPurchase[] = []
+  const stockLedger: StockLedger[] = []
+  const productAliases: ProductAlias[] = []
+  const bulkUploadBatches: BulkUploadBatch[] = []
+  const stockAdjustments: StockAdjustment[] = []
+  const shipmentShortages: ShipmentShortage[] = []
 
   setInstalledCatalogVersion()
 
@@ -67,6 +81,12 @@ export function createSeedDatabase(): DatabaseState {
     returns: [],
     notifications: [],
     transactionHistory: [],
+    retailerPurchases,
+    stockLedger,
+    productAliases,
+    bulkUploadBatches,
+    stockAdjustments,
+    shipmentShortages,
   }
 }
 
@@ -81,6 +101,12 @@ export function loadDatabase(): DatabaseState {
     }
     const parsed = JSON.parse(raw) as DatabaseState
     if (!parsed.returns) parsed.returns = []
+    if (!parsed.retailerPurchases) parsed.retailerPurchases = []
+    if (!parsed.stockLedger) parsed.stockLedger = []
+    if (!parsed.productAliases) parsed.productAliases = []
+    if (!parsed.bulkUploadBatches) parsed.bulkUploadBatches = []
+    if (!parsed.stockAdjustments) parsed.stockAdjustments = []
+    if (!parsed.shipmentShortages) parsed.shipmentShortages = []
     const migrated = migrateLocalDatabaseIfNeeded(parsed)
     if (migrated !== parsed) {
       localStorage.setItem(DB_KEY, JSON.stringify(migrated))

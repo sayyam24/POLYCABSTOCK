@@ -16,11 +16,26 @@ export function ReceiveShipmentView() {
     (s) => s.status === 'sent' || s.status === 'in_transit',
   )
 
-  const handleReceive = async (id: string) => {
+  const handleReceive = async (id: string, parsedItems?: Array<{ productName: string; quantity: number }>) => {
     try {
-      await electroTrackService.receiveShipment(session, id)
-      refresh()
-      toast.success('Confirmed — your stock is updated from this bill')
+      // Use MongoDB API instead of client-side service
+      const res = await fetch('/api/receive-shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shipmentId: id,
+          receiverOrgId: session.orgId,
+          parsedItems
+        })
+      })
+
+      if (res.ok) {
+        refresh()
+        toast.success('Confirmed — your stock is updated from this bill')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to receive')
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to receive')
     }

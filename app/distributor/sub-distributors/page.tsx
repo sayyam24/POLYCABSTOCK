@@ -9,22 +9,22 @@ import { useStore } from '@/components/store-provider'
 
 export default function DistributorSubDistributorsPage() {
   const { refresh } = useStore()
-  const retailers = electroTrackService.getOrganizations('retailer')
+  const subDistributors = electroTrackService.getOrganizations('sub_distributor')
 
   return (
     <DashboardLayout role="distributor">
-      <DashboardHeader title="Retailers" />
+      <DashboardHeader title="Sub Distributors" />
       <main className="p-4 lg:p-8 space-y-6">
         <Card>
-          <CardHeader><CardTitle>Add Retailer</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Add Sub Distributor</CardTitle></CardHeader>
           <CardContent>
-            <CreateUserForm allowedRoles={['retailer']} onCreated={refresh} />
+            <CreateUserForm allowedRoles={['sub_distributor']} onCreated={refresh} />
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Retail network</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Sub Distributor Network</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {retailers.map((s) => (
+            {subDistributors.map((s) => (
               <p key={s.id} className="text-sm flex justify-between"><span>{s.name}</span><span className="text-muted-foreground">{s.location}</span></p>
             ))}
           </CardContent>
