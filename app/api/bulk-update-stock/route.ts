@@ -18,15 +18,19 @@ export async function POST(req: Request) {
     // Handle bulk item-based stock update (for bulk invoice upload)
     if (items && Array.isArray(items)) {
       let organization = state.organizations.find((o) => o.id === orgId)
+      console.log(`Bulk stock update for orgId: ${orgId}, items:`, items)
       
       for (const item of items) {
+        console.log(`Processing item: productId=${item.productId}, productName=${item.productName}, quantity=${item.quantity}`)
         const existingStock = state.stock.find(
           (s) => s.orgId === orgId && s.productId === item.productId
         )
         
         if (existingStock) {
+          const oldQty = existingStock.quantity
           existingStock.quantity = Math.max(0, existingStock.quantity + item.quantity)
           existingStock.updatedAt = new Date().toISOString()
+          console.log(`Updated stock for ${item.productName}: ${oldQty} -> ${existingStock.quantity}`)
         } else if (item.quantity > 0) {
           // Only create new stock record if adding positive quantity
           const org = state.organizations.find((o) => o.id === orgId)
@@ -39,6 +43,9 @@ export async function POST(req: Request) {
             quantity: item.quantity,
             updatedAt: new Date().toISOString(),
           })
+          console.log(`Created new stock record for ${item.productName}: ${item.quantity}`)
+        } else {
+          console.log(`Skipping item ${item.productName} - no existing stock and quantity is ${item.quantity}`)
         }
       }
       

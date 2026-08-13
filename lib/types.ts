@@ -1,9 +1,11 @@
 export type UserRole =
+  | 'admin'
   | 'distributor'
   | 'sub_distributor'
   | 'retailer'
+  | 'salesman'
 
-export type UserStatus = 'pending' | 'approved' | 'rejected'
+export type UserStatus = 'pending' | 'approved' | 'rejected' | 'active' | 'inactive'
 
 export type ShipmentStatus =
   | 'pending'
@@ -20,6 +22,7 @@ export interface AuthSession {
   role: UserRole
   email: string
   name: string
+  distributorId?: string // For salesman: assigned distributor ID
 }
 
 export interface User {
@@ -30,6 +33,7 @@ export interface User {
   status: UserStatus
   parentId: string | null
   orgId: string
+  distributorId?: string // For salesman: assigned distributor ID
   location?: string
   contact?: string
   createdAt: string
@@ -380,4 +384,49 @@ export interface ShipmentShortage {
   resolvedDate?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface Subscription {
+  id: string
+  orgId: string
+  orgName: string
+  plan: 'basic' | 'pro' | 'enterprise'
+  status: 'active' | 'inactive' | 'trial' | 'expired'
+  startDate: string
+  endDate: string
+  maxUsers: number
+  maxProducts: number
+  features: string[]
+  paymentStatus: 'paid' | 'pending' | 'overdue'
+  lastPaymentDate?: string
+  amount: number
+  currency: string
+}
+
+export interface Payment {
+  id: string
+  subscriptionId: string
+  orgId: string
+  amount: number
+  currency: string
+  status: 'pending' | 'completed' | 'failed' | 'refunded'
+  paymentDate: string
+  paymentMethod: string
+  transactionId?: string
+  invoiceUrl?: string
+}
+
+export interface AuditLog {
+  id: string
+  userId: string
+  userName: string
+  userRole: UserRole
+  action: string
+  entityType: 'user' | 'organization' | 'product' | 'stock' | 'shipment' | 'invoice' | 'subscription' | 'payment'
+  entityId: string
+  entityName: string
+  changes: Record<string, { old: any; new: any }>
+  ipAddress?: string
+  userAgent?: string
+  timestamp: string
 }

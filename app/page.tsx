@@ -20,9 +20,11 @@ import { useAuth } from '@/components/auth-provider'
 import { ROLE_LABELS } from '@/lib/permissions'
 
 const ALL_ROLES: UserRole[] = [
+  'admin',
   'distributor',
   'sub_distributor',
   'retailer',
+  'salesman',
 ]
 
 export default function LoginPage() {

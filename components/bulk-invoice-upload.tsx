@@ -27,8 +27,6 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
   const [files, setFiles] = useState<File[]>([])
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([])
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadedInvoiceNumbers, setUploadedInvoiceNumbers] = useState<Set<string>>(new Set())
-  const [uploadedFileNames, setUploadedFileNames] = useState<Set<string>>(new Set())
   const [summary, setSummary] = useState({
     totalUploaded: 0,
     successfullyUpdated: 0,
@@ -98,22 +96,6 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
   const processFiles = async () => {
     if (files.length === 0) return
 
-    // Check for duplicate file names in current session
-    const duplicateFileNames: string[] = []
-    files.forEach(file => {
-      if (uploadedFileNames.has(file.name)) {
-        duplicateFileNames.push(file.name)
-      }
-    })
-
-    if (duplicateFileNames.length > 0) {
-      toast.error('Duplicate files detected', {
-        description: `These files were already uploaded in this session: ${duplicateFileNames.join(', ')}`,
-        duration: 5000,
-      })
-      return
-    }
-
     setIsUploading(true)
     
     // Get existing invoices from state for duplicate detection
@@ -123,6 +105,16 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
     const existingInvoiceNumbers = new Set(
       existingInvoices.map((inv: any) => inv.invoice_number?.toUpperCase()).filter(Boolean)
     )
+    
+    // Also check against transaction history for uploaded invoice numbers
+    const existingTxInvoiceNumbers = new Set(
+      (stateData.transactionHistory || [])
+        .map((tx: any) => tx.invoiceNumber?.toUpperCase())
+        .filter(Boolean)
+    )
+    
+    // Combine both sets
+    existingInvoiceNumbers.forEach(num => existingTxInvoiceNumbers.add(num))
     
     // Convert files to base64
     const pdfFiles = await Promise.all(
@@ -157,12 +149,12 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
       const data = await response.json()
       console.log('API Response:', data) // Debug log
 
-      // Check for duplicate invoice numbers (both database and session cache)
+      // Check for duplicate invoice numbers
       const duplicateInvoices: string[] = []
       data.results?.forEach((result: any) => {
-        if (result.invoice_data?.invoice_number) {
-          const invoiceNum = result.invoice_data.invoice_number.toUpperCase()
-          if (existingInvoiceNumbers.has(invoiceNum) || uploadedInvoiceNumbers.has(invoiceNum)) {
+        if (result.invoice_number) {
+          const invoiceNum = result.invoice_number.toUpperCase()
+          if (existingTxInvoiceNumbers.has(invoiceNum)) {
             duplicateInvoices.push(invoiceNum)
           }
         }
@@ -176,20 +168,6 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
         setIsUploading(false)
         return
       }
-
-      // Add new invoice numbers to session cache
-      const newInvoiceNumbers = new Set(uploadedInvoiceNumbers)
-      data.results?.forEach((result: any) => {
-        if (result.invoice_data?.invoice_number) {
-          newInvoiceNumbers.add(result.invoice_data.invoice_number.toUpperCase())
-        }
-      })
-      setUploadedInvoiceNumbers(newInvoiceNumbers)
-
-      // Add file names to session cache
-      const newFileNames = new Set(uploadedFileNames)
-      files.forEach(file => newFileNames.add(file.name))
-      setUploadedFileNames(newFileNames)
 
       // Update progress based on results
       const updatedProgress = uploadProgress.map((progress, index) => {

@@ -9,6 +9,8 @@ interface AuthContextValue {
   isLoading: boolean
   refresh: () => void
   logout: () => Promise<void>
+  isAdmin: () => boolean
+  isSalesman: () => boolean
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null)
@@ -35,8 +37,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionState(null)
   }, [])
 
+  const isAdmin = React.useCallback(() => {
+    return session?.role === 'admin'
+  }, [session])
+
+  const isSalesman = React.useCallback(() => {
+    return session?.role === 'salesman'
+  }, [session])
+
   return (
-    <AuthContext.Provider value={{ session, isLoading, refresh, logout }}>
+    <AuthContext.Provider value={{ session, isLoading, refresh, logout, isAdmin, isSalesman }}>
       {children}
     </AuthContext.Provider>
   )

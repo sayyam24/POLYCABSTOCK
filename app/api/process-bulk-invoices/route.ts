@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { electroTrackService } from '@/lib/services/electrotrack.service'
 import { createProductMatchingService } from '@/lib/services/product-matching.service'
 import type { Product, ProductAlias, AuthSession } from '@/lib/types'
+import { loadServerState, saveServerState } from '@/lib/db/server-state'
 
 interface ProcessBulkInvoicesRequest {
   pdfFiles: string[] // array of base64 encoded PDFs
@@ -10,6 +11,98 @@ interface ProcessBulkInvoicesRequest {
   uploadedBy?: string
   uploadedByName?: string
   orgId?: string // Distributor's organization ID
+}
+
+// Direct stock update function (inline to avoid HTTP request)
+async function updateStockItems(orgId: string, items: Array<{ productId: string; productName: string; quantity: number }>) {
+  const state = await loadServerState()
+  
+  for (const item of items) {
+    const existingStock = state.stock.find(
+      (s) => s.orgId === orgId && s.productId === item.productId
+    )
+    
+    if (existingStock) {
+      const oldQty = existingStock.quantity
+      existingStock.quantity = Math.max(0, existingStock.quantity + item.quantity)
+      existingStock.updatedAt = new Date().toISOString()
+      console.log(`Updated stock for ${item.productName}: ${oldQty} -> ${existingStock.quantity}`)
+    } else if (item.quantity > 0) {
+      const org = state.organizations.find((o) => o.id === orgId)
+      state.stock.push({
+        id: `stock_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        orgId,
+        orgType: org?.type || 'distributor',
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        updatedAt: new Date().toISOString(),
+      })
+      console.log(`Created new stock record for ${item.productName}: ${item.quantity}`)
+    } else {
+      console.log(`Skipping item ${item.productName} - no existing stock and quantity is ${item.quantity}`)
+    }
+  }
+  
+  await saveServerState(state)
+}
+
+// Direct transaction history function (inline to avoid HTTP request)
+async function addTransactionHistory(data: {
+  invoiceNumber: string
+  senderOrgId: string
+  senderName: string
+  senderRole: string
+  receiverName: string
+  receiverRole: string
+  items: Array<{ productId: string; productName: string; quantity: number }>
+  status: string
+}) {
+  const state = await loadServerState()
+  
+  // Add to transaction history
+  state.transactionHistory.push({
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    shipmentId: '',
+    invoiceNumber: data.invoiceNumber,
+    senderOrgId: data.senderOrgId,
+    senderName: data.senderName,
+    senderRole: data.senderRole as any,
+    receiverOrgId: '',
+    receiverName: data.receiverName,
+    receiverRole: data.receiverRole as any,
+    items: data.items,
+    status: data.status as any,
+    createdAt: new Date().toISOString()
+  })
+  
+  // Also add to stock ledger for each item
+  data.items.forEach(item => {
+    const isDeduction = item.quantity < 0
+    state.stockLedger.push({
+      id: `ledger_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      orgId: data.senderOrgId,
+      productId: item.productId,
+      productName: item.productName,
+      productCode: '',
+      quantity: Math.abs(item.quantity),
+      quantityIn: isDeduction ? 0 : item.quantity,
+      quantityOut: isDeduction ? Math.abs(item.quantity) : 0,
+      closingBalance: 0, // Will be calculated by the ledger system
+      actionType: isDeduction ? 'invoice_upload' : 'invoice_upload',
+      action: isDeduction ? 'bulk_invoice_deduction' : 'bulk_invoice_upload',
+      referenceNumber: data.invoiceNumber,
+      userId: data.senderOrgId,
+      userName: data.senderName,
+      userRole: data.senderRole as any,
+      dateTime: new Date().toISOString(),
+      remarks: isDeduction 
+        ? `Bulk invoice stock deduction - ${data.invoiceNumber}` 
+        : `Bulk invoice upload - ${data.invoiceNumber}`
+    } as any)
+  })
+  
+  await saveServerState(state)
 }
 
 interface InvoiceItem {
@@ -122,6 +215,10 @@ export async function POST(req: Request) {
 
     for (let index = 0; index < pythonData.results.length; index++) {
       const result = pythonData.results[index]
+      console.log(`=== Processing invoice ${index + 1} ===`)
+      console.log('Result:', result)
+      console.log('Items:', result.items)
+      
       try {
         // Transform Python response to our format
         const parsedData = {
@@ -136,53 +233,49 @@ export async function POST(req: Request) {
         const hasUnmatched = unmatchedItems.length > 0
         const status = hasUnmatched ? 'pending_mapping' : 'success'
         
+        console.log(`Has unmatched items: ${hasUnmatched}, Result success: ${result.success}, orgId: ${orgId}`)
+        
         // Deduct stock from distributor account if no unmatched items
         let stockDeducted = false
         if (!hasUnmatched && result.success && orgId) {
+          console.log('Attempting stock deduction...')
+          const stockItems = result.items.map((item: any) => ({
+            productId: item.matched_product_id,
+            productName: item.product_name || item.productName,
+            quantity: -item.quantity // Negative to deduct
+          }))
+          console.log('Stock items to deduct:', stockItems)
+          
           try {
-            // Use bulk update stock API
-            const stockUpdateRes = await fetch('/api/bulk-update-stock', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orgId: orgId,
-                items: result.items.map((item: any) => ({
-                  productId: item.matched_product_id,
-                  productName: item.product_name,
-                  quantity: -item.quantity // Negative to deduct
-                })),
-                actionType: 'bulk_invoice_upload',
-                referenceNumber: result.invoice_number || `INV_${index + 1}`,
-                remarks: `Bulk upload invoice ${result.invoice_number}`
-              })
-            })
-            stockDeducted = stockUpdateRes.ok
+            // Use direct function instead of HTTP request
+            await updateStockItems(orgId, stockItems)
+            stockDeducted = true
+            console.log('Stock deduction successful')
           } catch (stockError) {
             console.error(`Failed to deduct stock for invoice ${index + 1}:`, stockError)
           }
+        } else {
+          console.log('Skipping stock deduction - conditions not met')
         }
 
-        // Add transaction history entry via API
+        // Add transaction history entry via direct function
         if (result.success && orgId) {
           try {
-            await fetch('/api/add-transaction-history', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                invoiceNumber: result.invoice_number || `INV_${index + 1}`,
-                senderOrgId: orgId,
-                senderName: uploadedByName,
-                senderRole: 'distributor',
-                receiverName: 'Bulk Upload',
-                receiverRole: 'system',
-                items: result.items.map((item: any) => ({
-                  productId: item.matched_product_id || '',
-                  productName: item.product_name,
-                  quantity: item.quantity
-                })),
-                status: stockDeducted ? 'completed' : 'pending'
-              })
+            await addTransactionHistory({
+              invoiceNumber: result.invoice_number || `INV_${index + 1}`,
+              senderOrgId: orgId,
+              senderName: uploadedByName,
+              senderRole: 'sub_distributor',
+              receiverName: 'Bulk Upload',
+              receiverRole: 'system',
+              items: result.items.map((item: any) => ({
+                productId: item.matched_product_id || '',
+                productName: item.product_name,
+                quantity: item.quantity
+              })),
+              status: stockDeducted ? 'completed' : 'pending'
             })
+            console.log('Transaction history added successfully')
           } catch (historyError) {
             console.error(`Failed to add transaction history for invoice ${index + 1}:`, historyError)
           }

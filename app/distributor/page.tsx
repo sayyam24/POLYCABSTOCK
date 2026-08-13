@@ -6,6 +6,8 @@ import { StatsCard } from '@/components/stats-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Package,
   ArrowDownRight,
@@ -16,6 +18,7 @@ import {
   ChevronRight,
   TrendingUp,
   ClipboardCheck,
+  Search,
 } from 'lucide-react'
 import {
   LineChart,
@@ -49,6 +52,54 @@ export default function DistributorDashboard() {
     outgoingStock: 0,
     activeRetailers: 0
   })
+  const [stockItems, setStockItems] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [stockByCategoryState, setStockByCategoryState] = useState<Record<string, number>>({})
+  const [categoriesState, setCategoriesState] = useState<string[]>([])
+
+  // Stock with product details - aggregated by product
+  const stockWithProducts = stockItems.map(s => ({
+    ...s,
+    productName: products.find(p => p.id === s.productId)?.name || s.productName || 'Unknown',
+    sku: products.find(p => p.id === s.productId)?.sku || '',
+    category: products.find(p => p.id === s.productId)?.category || 'Uncategorized'
+  }))
+
+  // Aggregate quantities by product (handle duplicates)
+  const aggregatedStock = stockWithProducts.reduce((acc: Record<string, any>, item: any) => {
+    const key = item.productId
+    if (!acc[key]) {
+      acc[key] = {
+        productId: item.productId,
+        productName: item.productName,
+        sku: item.sku,
+        category: item.category,
+        quantity: 0
+      }
+    }
+    acc[key].quantity += item.quantity
+    return acc
+  }, {})
+
+  const aggregatedStockArray = Object.values(aggregatedStock) as any[]
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+
+  // Get unique categories and filter out generic ones
+  const uniqueCategories = Array.from(new Set(aggregatedStockArray.map((s: any) => s.category)))
+    .filter((cat: string) => cat !== 'Uncategorized' && cat !== 'General' && cat !== 'general')
+    .sort()
+
+  // Filter stock based on search and category
+  const filteredStock = aggregatedStockArray.filter((item: any) => {
+    const matchesSearch = searchTerm === '' || 
+      item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
+    return matchesSearch && matchesCategory
+  }).sort((a: any, b: any) => b.quantity - a.quantity)
 
   useEffect(() => {
     if (session) {
@@ -69,6 +120,23 @@ export default function DistributorDashboard() {
           const stock = data.stock || []
           const orgStock = stock.filter((s: any) => s.orgId === session.orgId)
           const totalInventory = orgStock.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0)
+          
+          // Calculate stock by category
+          const stockByCategory = orgStock.reduce((acc: Record<string, number>, s: any) => {
+            const product = data.products?.find((p: any) => p.id === s.productId)
+            const category = product?.category || 'Uncategorized'
+            acc[category] = (acc[category] || 0) + s.quantity
+            return acc
+          }, {})
+          
+          const categories = Object.keys(stockByCategory)
+            .filter((cat: string) => cat !== 'Uncategorized' && cat !== 'General' && cat !== 'general')
+            .sort()
+          
+          setStockItems(orgStock)
+          setProducts(data.products || [])
+          setStockByCategoryState(stockByCategory)
+          setCategoriesState(categories)
           
           setInventoryStats({
             totalInventory,
@@ -117,6 +185,98 @@ export default function DistributorDashboard() {
             icon={Store}
           />
         </div>
+
+        {/* Stock by Product */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock by Product</CardTitle>
+            <CardDescription>Individual product inventory levels</CardDescription>
+            <div className="flex flex-wrap gap-3 mt-4">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search product or SKU..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {uniqueCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {aggregatedStockArray.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                No stock data available
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3">Product</th>
+                      <th className="text-left py-2 px-3">SKU</th>
+                      <th className="text-left py-2 px-3">Category</th>
+                      <th className="text-right py-2 px-3">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStock
+                      .filter((s: any) => s.quantity > 0)
+                      .slice(0, 20)
+                      .map((item: any, index: number) => (
+                      <tr key={`${item.productId}-${index}`} className="border-b hover:bg-muted/50">
+                        <td className="py-2 px-3 font-medium">{item.productName}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{item.sku}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{item.category}</td>
+                        <td className="py-2 px-3 text-right font-bold">{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredStock.length === 0 && (
+                  <p className="text-center py-4 text-muted-foreground">No products match your filters</p>
+                )}
+                {filteredStock.length > 20 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing top 20 of {filteredStock.length} products
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Stock by Category Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {categoriesState.length === 0 ? (
+              <p className="text-muted-foreground">No stock data available</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {categoriesState.map((category) => (
+                  <div key={category} className="p-4 rounded-lg bg-muted/50 border">
+                    <p className="text-sm text-muted-foreground mb-1">{category}</p>
+                    <p className="text-2xl font-bold">{stockByCategoryState[category]}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stock Verification Summary Card */}
         <Card>

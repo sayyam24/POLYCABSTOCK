@@ -28,9 +28,11 @@ export const DEMO_CREDENTIALS: Record<
   UserRole,
   { email: string; password: string }
 > = {
+  admin: { email: 'admin@electrotrack.com', password: 'admin123' },
   distributor: { email: 'distributor@electrotrack.com', password: 'dist123' },
   sub_distributor: { email: 'subdistributor@electrotrack.com', password: 'sub123' },
   retailer: { email: 'retailer@electrotrack.com', password: 'retail123' },
+  salesman: { email: 'salesman@electrotrack.com', password: 'sales123' },
 }
 
 const DEMO_EMAILS = new Set(
@@ -74,6 +76,7 @@ export function userToSession(user: {
   role: UserRole
   email: string
   name: string
+  distributorId?: string
 }): AuthSession {
   return {
     userId: user.id,
@@ -81,6 +84,7 @@ export function userToSession(user: {
     role: user.role,
     email: user.email,
     name: user.name,
+    distributorId: user.distributorId,
   }
 }
 

@@ -42,6 +42,7 @@ export function ensureDemoCredentials(): void {
     'distributor@electrotrack.com': 'dist123',
     'subdistributor@electrotrack.com': 'sub123',
     'retailer@electrotrack.com': 'retail123',
+    'salesman@electrotrack.com': 'sales123',
   }
   const map = loadMap()
   let changed = false
