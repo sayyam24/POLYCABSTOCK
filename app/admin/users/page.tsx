@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Search, UserCheck, UserX, Building2, Plus } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Search, UserCheck, UserX, Building2, Plus, Users, Shield, MapPin, Filter, Sparkles, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -117,43 +118,102 @@ export default function AdminUsersPage() {
     return matchesSearch && matchesRole && matchesStatus
   })
 
-  const getStatusColor = (status: string) => {
+  const getStatusConfig = (status: string) => {
     switch (status) {
       case 'active':
       case 'approved':
-        return 'bg-green-100 text-green-800'
+        return {
+          icon: CheckCircle2,
+          color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-200 dark:border-green-900/50',
+          label: status === 'approved' ? 'Approved' : 'Active'
+        }
       case 'inactive':
       case 'rejected':
-        return 'bg-red-100 text-red-800'
+        return {
+          icon: XCircle,
+          color: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200 dark:border-red-900/50',
+          label: status === 'rejected' ? 'Rejected' : 'Inactive'
+        }
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
+        return {
+          icon: Clock,
+          color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50',
+          label: 'Pending'
+        }
       default:
-        return 'bg-gray-100 text-gray-800'
+        return {
+          icon: Clock,
+          color: 'bg-gray-100 text-gray-700 dark:bg-gray-950/30 dark:text-gray-400 border-gray-200 dark:border-gray-900/50',
+          label: status
+        }
     }
   }
 
-  const getRoleColor = (role: string) => {
+  const getRoleConfig = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-purple-100 text-purple-800'
+        return {
+          color: 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 border-purple-200 dark:border-purple-900/50',
+          label: 'Admin'
+        }
       case 'distributor':
-        return 'bg-blue-100 text-blue-800'
+        return {
+          color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-900/50',
+          label: 'Distributor'
+        }
       case 'sub_distributor':
-        return 'bg-cyan-100 text-cyan-800'
+        return {
+          color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400 border-cyan-200 dark:border-cyan-900/50',
+          label: 'Sub-Distributor'
+        }
       case 'retailer':
-        return 'bg-green-100 text-green-800'
+        return {
+          color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-200 dark:border-green-900/50',
+          label: 'Retailer'
+        }
       case 'salesman':
-        return 'bg-orange-100 text-orange-800'
+        return {
+          color: 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-200 dark:border-orange-900/50',
+          label: 'Salesman'
+        }
       default:
-        return 'bg-gray-100 text-gray-800'
+        return {
+          color: 'bg-gray-100 text-gray-700 dark:bg-gray-950/30 dark:text-gray-400 border-gray-200 dark:border-gray-900/50',
+          label: role
+        }
     }
   }
 
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-600">Loading...</div>
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <Skeleton className="h-10 w-64 mb-2" />
+              <Skeleton className="h-5 w-96" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="border-border/50">
+                <CardContent className="p-6">
+                  <Skeleton className="h-4 w-24 mb-3" />
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card className="border-border/50">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </AdminLayout>
     )
@@ -161,45 +221,52 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Users & Organizations</h1>
-            <p className="text-gray-600 mt-1">Manage users and organizations in the system</p>
+            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Users & Organizations
+            </h1>
+            <p className="text-lg text-muted-foreground mt-2">
+              Manage users and organizations in the system
+            </p>
           </div>
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25">
                 <Plus className="h-4 w-4 mr-2" />
                 Create User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="border-border/50 shadow-xl">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Create New User</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 pt-4">
                 <div>
-                  <Label>Name</Label>
+                  <Label className="text-sm font-semibold">Name</Label>
                   <Input
                     value={newUser.name}
                     onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                     placeholder="John Doe"
+                    className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <Label>Email</Label>
+                  <Label className="text-sm font-semibold">Email</Label>
                   <Input
                     type="email"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                     placeholder="john@example.com"
+                    className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <Label>Role</Label>
+                  <Label className="text-sm font-semibold">Role</Label>
                   <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -212,9 +279,9 @@ export default function AdminUsersPage() {
                 </div>
                 {newUser.role === 'salesman' && (
                   <div>
-                    <Label>Assign to Distributor</Label>
+                    <Label className="text-sm font-semibold">Assign to Distributor</Label>
                     <Select value={newUser.distributorId} onValueChange={(value) => setNewUser({ ...newUser, distributorId: value })}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
                         <SelectValue placeholder="Select distributor" />
                       </SelectTrigger>
                       <SelectContent>
@@ -226,14 +293,15 @@ export default function AdminUsersPage() {
                   </div>
                 )}
                 <div>
-                  <Label>Location</Label>
+                  <Label className="text-sm font-semibold">Location</Label>
                   <Input
                     value={newUser.location}
                     onChange={(e) => setNewUser({ ...newUser, location: e.target.value })}
                     placeholder="City, State"
+                    className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                   />
                 </div>
-                <Button onClick={createUser} className="w-full">
+                <Button onClick={createUser} className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25">
                   Create User
                 </Button>
               </div>
@@ -241,24 +309,84 @@ export default function AdminUsersPage() {
           </Dialog>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Users</p>
+                  <p className="text-3xl font-bold">{users.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg">
+                  <CheckCircle2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active Users</p>
+                  <p className="text-3xl font-bold">{users.filter(u => u.status === 'active' || u.status === 'approved').length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Organizations</p>
+                  <p className="text-3xl font-bold">{organizations.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admins</p>
+                  <p className="text-3xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters Card */}
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">Filters & Search</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative flex-1 min-w-[250px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search users..."
+                  placeholder="Search users by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="h-12 pl-12 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                 />
               </div>
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Role" />
+                <SelectTrigger className="h-12 w-[280px] border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
+                  <SelectValue placeholder="Filter by Role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
@@ -270,8 +398,8 @@ export default function AdminUsersPage() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Status" />
+                <SelectTrigger className="h-12 w-[280px] border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
+                  <SelectValue placeholder="Filter by Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -284,108 +412,163 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Users ({filteredUsers.length})</CardTitle>
+        {/* Users Table */}
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">
+                  Users ({filteredUsers.length})
+                </CardTitle>
+              </div>
+              {filteredUsers.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50">
+                  <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    {filteredUsers.length} users
+                  </span>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Name</th>
-                    <th className="text-left py-3 px-4">Email</th>
-                    <th className="text-left py-3 px-4">Role</th>
-                    <th className="text-left py-3 px-4">Status</th>
-                    <th className="text-left py-3 px-4">Organization</th>
-                    <th className="text-left py-3 px-4">Assigned Distributor</th>
-                    <th className="text-left py-3 px-4">Location</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Organization</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assigned Distributor</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4 font-medium">{user.name}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{user.email}</td>
-                      <td className="py-3 px-4">
-                        <Badge className={getRoleColor(user.role)}>
-                          {user.role.replace('_', ' ')}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={getStatusColor(user.status)}>
-                          {user.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        {organizations.find(o => o.id === user.orgId)?.name || '-'}
-                      </td>
-                      <td className="py-3 px-4">
-                        {user.role === 'salesman' 
-                          ? (organizations.find(o => o.id === user.distributorId)?.name || 'Not Assigned')
-                          : '-'
-                        }
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{user.location || '-'}</td>
-                      <td className="py-3 px-4">
-                        {user.role !== 'admin' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleUserStatus(user.id, user.status)}
-                          >
-                            {(user.status === 'active' || user.status === 'approved') ? (
-                              <UserX className="h-4 w-4 text-red-600" />
-                            ) : (
-                              <UserCheck className="h-4 w-4 text-green-600" />
-                            )}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredUsers.map((user) => {
+                    const statusConfig = getStatusConfig(user.status)
+                    const StatusIcon = statusConfig.icon
+                    const roleConfig = getRoleConfig(user.role)
+                    
+                    return (
+                      <tr key={user.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                        <td className="py-4 px-4 font-medium">{user.name}</td>
+                        <td className="py-4 px-4 text-muted-foreground">{user.email}</td>
+                        <td className="py-4 px-4">
+                          <Badge className={`${roleConfig.color} border`}>
+                            {roleConfig.label}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-4">
+                          <Badge className={`${statusConfig.color} border`}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {statusConfig.label}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-4">
+                          {organizations.find(o => o.id === user.orgId)?.name || '-'}
+                        </td>
+                        <td className="py-4 px-4">
+                          {user.role === 'salesman' 
+                            ? (organizations.find(o => o.id === user.distributorId)?.name || 'Not Assigned')
+                            : '-'
+                          }
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{user.location || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          {user.role !== 'admin' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-indigo-100 dark:hover:bg-indigo-950/30"
+                              onClick={() => toggleUserStatus(user.id, user.status)}
+                            >
+                              {(user.status === 'active' || user.status === 'approved') ? (
+                                <UserX className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              ) : (
+                                <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              )}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
+              {filteredUsers.length === 0 && (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No users found</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Organizations ({organizations.length})</CardTitle>
+        {/* Organizations Table */}
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">
+                Organizations ({organizations.length})
+              </CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Name</th>
-                    <th className="text-left py-3 px-4">Type</th>
-                    <th className="text-left py-3 px-4">Location</th>
-                    <th className="text-left py-3 px-4">Contact</th>
-                    <th className="text-left py-3 px-4">Users</th>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact</th>
+                    <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Users</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {organizations.map((org) => (
-                    <tr key={org.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4 font-medium flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {org.name}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={getRoleColor(org.type)}>
-                          {org.type.replace('_', ' ')}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{org.location}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{org.contact}</td>
-                      <td className="py-3 px-4">
-                        {users.filter(u => u.orgId === org.id).length}
-                      </td>
-                    </tr>
-                  ))}
+                  {organizations.map((org) => {
+                    const roleConfig = getRoleConfig(org.type)
+                    
+                    return (
+                      <tr key={org.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                        <td className="py-4 px-4 font-medium flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/30 flex items-center justify-center">
+                            <Building2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                          </div>
+                          {org.name}
+                        </td>
+                        <td className="py-4 px-4">
+                          <Badge className={`${roleConfig.color} border`}>
+                            {roleConfig.label}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{org.location}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-muted-foreground">{org.contact}</td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold">{users.filter(u => u.orgId === org.id).length}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

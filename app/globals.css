@@ -161,4 +161,34 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.5);
   }
+
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+  }
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-xl border border-slate-700/50;
+  }
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-lg border border-white/30 shadow-xl;
+  }
+  .glass-card-dark {
+    @apply bg-slate-800/60 backdrop-blur-lg border border-slate-700/50 shadow-xl;
+  }
+
+  .gradient-primary {
+    @apply bg-gradient-to-r from-indigo-600 to-purple-600;
+  }
+  .gradient-secondary {
+    @apply bg-gradient-to-r from-blue-500 to-cyan-500;
+  }
+  .gradient-accent {
+    @apply bg-gradient-to-r from-amber-500 to-orange-500;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600;
+  }
+  .text-gradient-dark {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400;
+  }
 }

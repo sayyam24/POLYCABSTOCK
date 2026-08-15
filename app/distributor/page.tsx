@@ -2,12 +2,12 @@
 
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { DashboardHeader } from '@/components/dashboard-header'
-import { StatsCard } from '@/components/stats-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Package,
   ArrowDownRight,
@@ -19,18 +19,13 @@ import {
   TrendingUp,
   ClipboardCheck,
   Search,
+  Filter,
+  Sparkles,
+  Zap,
+  Truck,
+  BarChart3,
+  Layers,
 } from 'lucide-react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from 'recharts'
 import { useAuth } from '@/components/auth-provider'
 import { useEffect, useState } from 'react'
 import { electroTrackService } from '@/lib/services/electrotrack.service'
@@ -40,6 +35,7 @@ import { useRouter } from 'next/navigation'
 export default function DistributorDashboard() {
   const { session } = useAuth()
   const router = useRouter()
+  const [loading, setLoading] = useState(true)
   const [stockSummary, setStockSummary] = useState({
     lastVerificationDate: null as string | null,
     totalAdjustmentsThisMonth: 0,
@@ -140,70 +136,137 @@ export default function DistributorDashboard() {
           
           setInventoryStats({
             totalInventory,
-            incomingStock: 0, // Calculate from incoming shipments if needed
-            outgoingStock: 0, // Calculate from outgoing shipments if needed
-            activeRetailers: 0 // Calculate from retailers if needed
+            incomingStock: 0,
+            outgoingStock: 0,
+            activeRetailers: 0
           })
+          setLoading(false)
         })
-        .catch(() => {})
+        .catch(() => setLoading(false))
     }
   }, [session])
+
+  if (loading) {
+    return (
+      <DashboardLayout role="distributor">
+        <DashboardHeader title="Distributor Dashboard" userName="Distributor Corp" />
+        <main className="p-4 lg:p-8 space-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="border-border/50">
+                <CardContent className="p-6">
+                  <Skeleton className="h-4 w-24 mb-3" />
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card className="border-border/50">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout role="distributor">
       <DashboardHeader title="Distributor Dashboard" userName="Distributor Corp" />
       
-      <main className="p-4 lg:p-8 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Current Inventory"
-            value={inventoryStats.totalInventory.toLocaleString()}
-            change={inventoryStats.totalInventory > 0 ? "Stock available" : "No data yet"}
-            changeType={inventoryStats.totalInventory > 0 ? "positive" : "neutral"}
-            icon={Package}
-          />
-          <StatsCard
-            title="Incoming Stock"
-            value={inventoryStats.incomingStock.toLocaleString()}
-            change="No data yet"
-            changeType="neutral"
-            icon={ArrowDownRight}
-          />
-          <StatsCard
-            title="Outgoing Stock"
-            value={inventoryStats.outgoingStock.toLocaleString()}
-            change="No data yet"
-            changeType="neutral"
-            icon={ArrowUpRight}
-          />
-          <StatsCard
-            title="Active Retailers"
-            value={inventoryStats.activeRetailers.toLocaleString()}
-            change="No data yet"
-            changeType="neutral"
-            icon={Store}
-          />
+      <main className="p-4 lg:p-8 space-y-8">
+        {/* Premium Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                  <Package className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Current Inventory</p>
+                  <p className="text-3xl font-bold">{inventoryStats.totalInventory.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg">
+                  <ArrowDownRight className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Incoming Stock</p>
+                  <p className="text-3xl font-bold">{inventoryStats.incomingStock.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                  <ArrowUpRight className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Outgoing Stock</p>
+                  <p className="text-3xl font-bold">{inventoryStats.outgoingStock.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                  <Store className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active Retailers</p>
+                  <p className="text-3xl font-bold">{inventoryStats.activeRetailers.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stock by Product */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Stock by Product</CardTitle>
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Stock by Product</CardTitle>
+              </div>
+              {aggregatedStockArray.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50">
+                  <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    {aggregatedStockArray.length} products
+                  </span>
+                </div>
+              )}
+            </div>
             <CardDescription>Individual product inventory levels</CardDescription>
             <div className="flex flex-wrap gap-3 mt-4">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative flex-1 min-w-[250px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search product or SKU..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="h-12 pl-12 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                 />
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Category" />
+                <SelectTrigger className="h-12 w-[280px] border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
+                  <SelectValue placeholder="Filter by Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
@@ -221,13 +284,13 @@ export default function DistributorDashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-3">Product</th>
-                      <th className="text-left py-2 px-3">SKU</th>
-                      <th className="text-left py-2 px-3">Category</th>
-                      <th className="text-right py-2 px-3">Quantity</th>
+                    <tr className="border-b border-border/50">
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Product</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">SKU</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Category</th>
+                      <th className="text-right py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quantity</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -235,22 +298,31 @@ export default function DistributorDashboard() {
                       .filter((s: any) => s.quantity > 0)
                       .slice(0, 20)
                       .map((item: any, index: number) => (
-                      <tr key={`${item.productId}-${index}`} className="border-b hover:bg-muted/50">
-                        <td className="py-2 px-3 font-medium">{item.productName}</td>
-                        <td className="py-2 px-3 text-muted-foreground">{item.sku}</td>
-                        <td className="py-2 px-3 text-muted-foreground">{item.category}</td>
-                        <td className="py-2 px-3 text-right font-bold">{item.quantity}</td>
+                      <tr key={`${item.productId}-${index}`} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                        <td className="py-4 px-4 font-medium">{item.productName}</td>
+                        <td className="py-4 px-4 text-muted-foreground font-mono text-sm">{item.sku}</td>
+                        <td className="py-4 px-4">
+                          <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50">
+                            {item.category}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-4 text-right font-bold text-lg">{item.quantity}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {filteredStock.length === 0 && (
-                  <p className="text-center py-4 text-muted-foreground">No products match your filters</p>
+                  <div className="text-center py-12">
+                    <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No products match your filters</p>
+                  </div>
                 )}
                 {filteredStock.length > 20 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Showing top 20 of {filteredStock.length} products
-                  </p>
+                  <div className="mt-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Showing top 20 of {filteredStock.length} products
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -258,9 +330,12 @@ export default function DistributorDashboard() {
         </Card>
 
         {/* Stock by Category Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Stock by Category</CardTitle>
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">Stock by Category</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             {categoriesState.length === 0 ? (
@@ -268,9 +343,9 @@ export default function DistributorDashboard() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {categoriesState.map((category) => (
-                  <div key={category} className="p-4 rounded-lg bg-muted/50 border">
-                    <p className="text-sm text-muted-foreground mb-1">{category}</p>
-                    <p className="text-2xl font-bold">{stockByCategoryState[category]}</p>
+                  <div key={category} className="p-6 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-border/50 hover:shadow-md transition-shadow">
+                    <p className="text-sm font-semibold text-muted-foreground mb-2">{category}</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{stockByCategoryState[category]}</p>
                   </div>
                 ))}
               </div>
@@ -279,33 +354,31 @@ export default function DistributorDashboard() {
         </Card>
 
         {/* Stock Verification Summary Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-primary" />
-                Stock Verification Summary
-              </CardTitle>
-              <CardDescription>Monthly stock adjustment overview</CardDescription>
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">Stock Verification Summary</CardTitle>
             </div>
+            <CardDescription>Monthly stock adjustment overview</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-sm text-muted-foreground mb-1">Last Verification Date</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border border-border/50">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Last Verification Date</div>
                 <div className="text-lg font-semibold">
                   {stockSummary.lastVerificationDate 
                     ? new Date(stockSummary.lastVerificationDate).toLocaleDateString() 
                     : 'Never verified'}
                 </div>
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-sm text-muted-foreground mb-1">Total Adjustments This Month</div>
-                <div className="text-lg font-semibold text-green-600">{stockSummary.totalAdjustmentsThisMonth}</div>
+              <div className="p-6 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-border/50">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Total Adjustments This Month</div>
+                <div className="text-lg font-semibold text-green-600 dark:text-green-400">{stockSummary.totalAdjustmentsThisMonth}</div>
               </div>
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <div className="text-sm text-muted-foreground mb-1">Total Difference Adjusted</div>
-                <div className="text-lg font-semibold text-purple-600">{stockSummary.totalDifferenceAdjusted}</div>
+              <div className="p-6 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-border/50">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Total Difference Adjusted</div>
+                <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">{stockSummary.totalDifferenceAdjusted}</div>
               </div>
             </div>
           </CardContent>
@@ -313,16 +386,22 @@ export default function DistributorDashboard() {
 
         {/* Pending Receives Widget */}
         {pendingReceives > 0 && (
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-800">
-                <Clock className="h-5 w-5" />
-                Pending Receives ({pendingReceives})
-              </CardTitle>
+          <Card className="border-yellow-200 dark:border-yellow-900/50 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                <CardTitle className="text-xl font-semibold text-yellow-800 dark:text-yellow-400">
+                  Pending Receives ({pendingReceives})
+                </CardTitle>
+              </div>
               <CardDescription>Shipments waiting to be received</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => router.push('/distributor/shipments')}>
+              <Button 
+                onClick={() => router.push('/distributor/shipments')}
+                className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white shadow-lg shadow-yellow-500/25"
+              >
+                <Truck className="h-4 w-4 mr-2" />
                 View Shipments
               </Button>
             </CardContent>
@@ -332,9 +411,12 @@ export default function DistributorDashboard() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Stock Flow Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock Flow</CardTitle>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Stock Flow</CardTitle>
+              </div>
               <CardDescription>Incoming vs Outgoing inventory</CardDescription>
             </CardHeader>
             <CardContent>
@@ -345,9 +427,12 @@ export default function DistributorDashboard() {
           </Card>
 
           {/* Retailer Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Retailer Performance</CardTitle>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Retailer Performance</CardTitle>
+              </div>
               <CardDescription>Top performing retail partners</CardDescription>
             </CardHeader>
             <CardContent>
@@ -361,15 +446,13 @@ export default function DistributorDashboard() {
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Pending Orders */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-warning" />
-                  Pending Orders
-                </CardTitle>
-                <CardDescription>Orders awaiting processing</CardDescription>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Pending Orders</CardTitle>
               </div>
+              <CardDescription>Orders awaiting processing</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center h-32 text-muted-foreground">
@@ -379,15 +462,18 @@ export default function DistributorDashboard() {
           </Card>
 
           {/* Top Products */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Top Products</CardTitle>
-                <CardDescription>Best selling items this month</CardDescription>
+          <Card className="lg:col-span-2 border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-indigo-500" />
+                  <CardTitle className="text-xl font-semibold">Top Products</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="hover:bg-indigo-100 dark:hover:bg-indigo-950/30">
+                  View all <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="sm">
-                View all <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
+              <CardDescription>Best selling items this month</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center h-32 text-muted-foreground">
@@ -398,15 +484,13 @@ export default function DistributorDashboard() {
         </div>
 
         {/* Recent Deliveries */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-                Recent Deliveries
-              </CardTitle>
-              <CardDescription>Successfully completed deliveries</CardDescription>
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">Recent Deliveries</CardTitle>
             </div>
+            <CardDescription>Successfully completed deliveries</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center h-32 text-muted-foreground">

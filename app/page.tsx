@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Zap, Eye, EyeOff, Info } from 'lucide-react'
+import { Zap, Eye, EyeOff, Info, ArrowRight, CheckCircle2, Building2, Truck, Users, BarChart3, Shield, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -189,69 +189,208 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-sidebar flex-col justify-between p-12">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sidebar-primary">
-            <Zap className="h-7 w-7 text-sidebar-primary-foreground" />
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-600 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-300 rounded-full blur-3xl animate-pulse delay-2000" />
+        </div>
+
+        <div className="relative z-10 flex flex-col justify-between p-12 h-full">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg">
+              <Zap className="h-8 w-8 text-white" />
+            </div>
+            <span className="text-3xl font-bold text-white tracking-tight">ElectroTrack</span>
           </div>
-          <span className="text-2xl font-bold text-sidebar-foreground">ElectroTrack</span>
+
+          {/* Main Content */}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                <Sparkles className="h-4 w-4 text-yellow-300" />
+                <span className="text-sm font-medium text-white/90">Premium Stock Management</span>
+              </div>
+              <h1 className="text-5xl font-bold text-white leading-tight tracking-tight">
+                Transform Your
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-400">
+                  Electrical Distribution
+                </span>
+              </h1>
+              <p className="text-xl text-white/80 max-w-lg leading-relaxed">
+                Complete bill-based stock tracking from Factory to Retailer. Streamline your distribution chain with real-time inventory management.
+              </p>
+            </div>
+
+            {/* Features Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Multi-Level</h3>
+                  <p className="text-sm text-white/70">Factory → Retailer</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                  <Truck className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Shipments</h3>
+                  <p className="text-sm text-white/70">Bill-based tracking</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Analytics</h3>
+                  <p className="text-sm text-white/70">Real-time insights</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">Secure</h3>
+                  <p className="text-sm text-white/70">Role-based access</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Info */}
+          <div className="flex items-center gap-6 text-sm text-white/60">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Enterprise-ready</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>24/7 Support</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Cloud-based</span>
+            </div>
+          </div>
         </div>
-        <div className="space-y-4">
-          <h1 className="text-4xl font-bold text-sidebar-foreground leading-tight">
-            Bill-based stock tracking
-          </h1>
-          <p className="text-lg text-sidebar-foreground/70 max-w-md">
-            Factory → Depo → Sub Distributor → Distributor → Retailer. Upload a bill or
-            Excel on send; receiver confirms to update stock. Returns adjust stock back.
-          </p>
-          <ol className="text-sm text-sidebar-foreground/80 space-y-2 list-decimal list-inside">
-            <li>Factory updates stock and sends to depo with bill/Excel</li>
-            <li>Each level receives, confirms, then sends downstream</li>
-            <li>Distributor must attach retailer bill copy on send</li>
-          </ol>
-        </div>
-        <p className="text-sm text-sidebar-foreground/50">
-          Admin: User Management · Depo: Stock &amp; Send · Distributor → Retailer chain
-        </p>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 bg-background">
-        <Card className="w-full max-w-lg border-0 shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{isSignup ? 'Create account' : 'Sign in'}</CardTitle>
-            <CardDescription>
-              {isSignup
-                ? 'Enter your details to create a new account'
-                : 'Enter your credentials to access your account'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {isSignup && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
+      {/* Right Side - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600">
+              <Zap className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">ElectroTrack</span>
+          </div>
+
+          <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl dark:bg-slate-900/80">
+            <CardHeader className="text-center space-y-2 pb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 mb-4 mx-auto shadow-lg">
+                <Users className="h-8 w-8 text-white" />
+              </div>
+              <CardTitle className="text-3xl font-bold tracking-tight">
+                {isSignup ? 'Create Account' : 'Welcome Back'}
+              </CardTitle>
+              <CardDescription className="text-base">
+                {isSignup
+                  ? 'Start managing your electrical distribution today'
+                  : 'Enter your credentials to access your dashboard'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {isSignup && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Full Name</Label>
+                      <Input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="h-12 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                        placeholder="John Doe"
+                        autoComplete="name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Role</Label>
+                      <Select
+                        value={signupRole}
+                        onValueChange={(v) => setSignupRole(v as UserRole)}
+                      >
+                        <SelectTrigger className="h-12 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALL_ROLES.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {ROLE_LABELS[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Email</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                    placeholder="you@company.com"
+                    autoComplete={isSignup ? 'username' : 'email'}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Password</Label>
+                  <div className="relative">
                     <Input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-12"
-                      placeholder="John Doe"
-                      autoComplete="name"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-12 pr-12 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                      autoComplete="current-password"
                       required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Select
-                      value={signupRole}
-                      onValueChange={(v) => setSignupRole(v as UserRole)}
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
                     >
-                      <SelectTrigger className="h-12">
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {!isSignup && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Role (optional)</Label>
+                    <Select
+                      value={roleHint}
+                      onValueChange={(v) => setRoleHint(v as UserRole | 'auto')}
+                    >
+                      <SelectTrigger className="h-12 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="auto">Auto-detect from account</SelectItem>
                         {ALL_ROLES.map((r) => (
                           <SelectItem key={r} value={r}>
                             {ROLE_LABELS[r]}
@@ -259,104 +398,69 @@ export default function LoginPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-slate-500 flex items-start gap-2 bg-slate-50 p-3 rounded-lg">
+                      <Info className="h-4 w-4 shrink-0 mt-0.5 text-indigo-500" />
+                      <span>Leave on Auto-detect unless you have multiple roles on one email.</span>
+                    </p>
                   </div>
-                </>
-              )}
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12"
-                  placeholder="you@company.com"
-                  autoComplete={isSignup ? 'username' : 'email'}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 pr-10"
-                    autoComplete="current-password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
+                )}
 
-              {!isSignup && (
-                <div className="space-y-2">
-                  <Label>Role (optional)</Label>
-                  <Select
-                    value={roleHint}
-                    onValueChange={(v) => setRoleHint(v as UserRole | 'auto')}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Auto-detect from account</SelectItem>
-                      {ALL_ROLES.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground flex items-start gap-1">
-                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    Leave on Auto-detect unless you have multiple roles on one email.
+                {error && (
+                  <div className="flex items-start gap-2 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all duration-200"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    isSignup ? 'Creating account...' : 'Signing in...'
+                  ) : (
+                    <>
+                      {isSignup ? 'Create Account' : 'Sign In'}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-center pt-4 border-t border-slate-200">
+                  <p className="text-sm text-slate-600">
+                    {isSignup ? 'Already have an account? ' : "Don't have an account? "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignup(!isSignup)
+                        setError('')
+                        setName('')
+                        setEmail('')
+                        setPassword('')
+                      }}
+                      className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                    >
+                      {isSignup ? 'Sign in' : 'Sign up'}
+                    </button>
                   </p>
                 </div>
-              )}
 
-              {error && (
-                <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-                  {error}
-                </p>
-              )}
+                {!isSignup && (
+                  <p className="text-center text-xs text-slate-500">
+                    Admin creates accounts at{' '}
+                    <span className="font-semibold text-indigo-600">User Management</span>
+                  </p>
+                )}
+              </form>
+            </CardContent>
+          </Card>
 
-              <Button type="submit" className="w-full h-12" disabled={isLoading}>
-                {isLoading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign up' : 'Sign in')}
-              </Button>
-
-              <p className="text-center text-sm text-muted-foreground">
-                {isSignup ? 'Already have an account? ' : "Don't have an account? "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignup(!isSignup)
-                    setError('')
-                    setName('')
-                    setEmail('')
-                    setPassword('')
-                  }}
-                  className="font-medium text-foreground hover:underline"
-                >
-                  {isSignup ? 'Sign in' : 'Sign up'}
-                </button>
-              </p>
-
-              {!isSignup && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Admin creates accounts at{' '}
-                  <span className="font-medium text-foreground">User Management</span>
-                </p>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+          {/* Footer */}
+          <div className="mt-8 text-center text-sm text-slate-500">
+            <p>© 2024 ElectroTrack. All rights reserved.</p>
+          </div>
+        </div>
       </div>
     </div>
   )

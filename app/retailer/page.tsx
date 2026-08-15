@@ -2,11 +2,11 @@
 
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { DashboardHeader } from '@/components/dashboard-header'
-import { StatsCard } from '@/components/stats-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Package,
   ShoppingCart,
@@ -15,6 +15,11 @@ import {
   TrendingUp,
   ChevronRight,
   ShoppingBag,
+  Sparkles,
+  Truck,
+  BarChart3,
+  Layers,
+  Zap,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -70,45 +75,72 @@ export default function RetailerDashboard() {
     <DashboardLayout role="retailer">
       <DashboardHeader title="Retailer Dashboard" userName="TechMart Store" />
       
-      <main className="p-4 lg:p-8 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Total Inventory"
-            value="3,405"
-            change="Units in stock"
-            changeType="neutral"
-            icon={Package}
-          />
-          <StatsCard
-            title="Today Sales"
-            value="$4,280"
-            change="+18% from yesterday"
-            changeType="positive"
-            icon={DollarSign}
-          />
-          <StatsCard
-            title="Orders Today"
-            value="48"
-            change="+12 from yesterday"
-            changeType="positive"
-            icon={ShoppingCart}
-          />
-          <StatsCard
-            title="Low Stock Items"
-            value="3"
-            change="Need restocking"
-            changeType="negative"
-            icon={AlertTriangle}
-          />
+      <main className="p-4 lg:p-8 space-y-8">
+        {/* Premium Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                  <Package className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Inventory</p>
+                  <p className="text-3xl font-bold">3,405</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Today Sales</p>
+                  <p className="text-3xl font-bold">$4,280</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                  <ShoppingCart className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Orders Today</p>
+                  <p className="text-3xl font-bold">48</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                  <AlertTriangle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Low Stock</p>
+                  <p className="text-3xl font-bold">3</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts and Sales Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Weekly Sales Chart */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Weekly Sales</CardTitle>
+          <Card className="lg:col-span-2 border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Weekly Sales</CardTitle>
+              </div>
               <CardDescription>Sales performance this week</CardDescription>
             </CardHeader>
             <CardContent>
@@ -141,26 +173,26 @@ export default function RetailerDashboard() {
           </Card>
 
           {/* Top Sellers */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                Top Sellers
-              </CardTitle>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-indigo-500" />
+                <CardTitle className="text-xl font-semibold">Top Sellers</CardTitle>
+              </div>
               <CardDescription>Best performing products</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {topSellers.map((product, index) => (
                   <div key={product.name} className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-sm font-bold text-white shadow-lg">
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{product.name}</p>
                       <p className="text-xs text-muted-foreground">{product.sales} sold</p>
                     </div>
-                    <p className="text-sm font-bold text-success">{product.revenue}</p>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400">{product.revenue}</p>
                   </div>
                 ))}
               </div>
@@ -171,22 +203,25 @@ export default function RetailerDashboard() {
         {/* Inventory and Orders Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Inventory Status */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Inventory Status</CardTitle>
-                <CardDescription>Stock levels by category</CardDescription>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-indigo-500" />
+                  <CardTitle className="text-xl font-semibold">Inventory Status</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="hover:bg-indigo-100 dark:hover:bg-indigo-950/30">
+                  View all <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="sm">
-                View all <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
+              <CardDescription>Stock levels by category</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {inventoryStatus.map((item) => (
                   <div key={item.category} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{item.category}</span>
+                      <span className="text-sm font-semibold">{item.category}</span>
                       <span className="text-sm text-muted-foreground">
                         {item.inStock} / {item.total}
                       </span>
@@ -194,44 +229,48 @@ export default function RetailerDashboard() {
                     <Progress
                       value={item.percentage}
                       className={`h-2 ${
-                        item.percentage < 30 ? '[&>div]:bg-destructive' :
-                        item.percentage < 50 ? '[&>div]:bg-warning' :
-                        '[&>div]:bg-success'
+                        item.percentage < 30 ? '[&>div]:bg-red-500' :
+                        item.percentage < 50 ? '[&>div]:bg-yellow-500' :
+                        '[&>div]:bg-green-500'
                       }`}
                     />
                   </div>
                 ))}
               </div>
-              <Button className="w-full mt-6" size="lg">
+              <Button 
+                className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25" 
+                size="lg"
+              >
+                <Truck className="h-4 w-4 mr-2" />
                 Request Restock
               </Button>
             </CardContent>
           </Card>
 
           {/* Recent Sales */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                  Recent Sales
-                </CardTitle>
-                <CardDescription>Latest transactions</CardDescription>
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-indigo-500" />
+                  <CardTitle className="text-xl font-semibold">Recent Sales</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="hover:bg-indigo-100 dark:hover:bg-indigo-950/30">
+                  View all <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="sm">
-                View all <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
+              <CardDescription>Latest transactions</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {recentSales.map((sale) => (
-                  <div key={sale.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <div key={sale.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors rounded-lg px-2">
                     <div>
-                      <p className="text-sm font-medium">{sale.customer}</p>
+                      <p className="text-sm font-semibold">{sale.customer}</p>
                       <p className="text-xs text-muted-foreground">{sale.id} • {sale.items} items</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold">{sale.total}</p>
+                      <p className="text-sm font-bold text-green-600 dark:text-green-400">{sale.total}</p>
                       <p className="text-xs text-muted-foreground">{sale.time}</p>
                     </div>
                   </div>
@@ -242,28 +281,32 @@ export default function RetailerDashboard() {
         </div>
 
         {/* Pending Restocks */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Restocks</CardTitle>
+        <Card className="border-border/50 shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-xl font-semibold">Pending Restocks</CardTitle>
+            </div>
             <CardDescription>Incoming inventory orders</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {pendingRestocks.map((restock) => (
-                <div key={restock.product} className="p-4 rounded-lg border border-border bg-card">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium">{restock.product}</p>
+                <div key={restock.product} className="p-6 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-border/50 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold">{restock.product}</p>
                     <Badge
-                      variant={
-                        restock.status === 'in-transit' ? 'default' :
-                        restock.status === 'processing' ? 'secondary' : 'outline'
+                      className={
+                        restock.status === 'in-transit' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-200 dark:border-green-900/50' :
+                        restock.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-900/50' :
+                        'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 border-purple-200 dark:border-purple-900/50'
                       }
                     >
                       {restock.status}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{restock.ordered} units</span>
+                    <span className="font-semibold">{restock.ordered} units</span>
                     <span>ETA: {restock.eta}</span>
                   </div>
                 </div>
