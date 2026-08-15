@@ -35,7 +35,7 @@ export function DemoDataPanel() {
       setSeeded(true)
       refresh()
       toast.success('Demo data generated', {
-        description: `${DEMO_COUNTS.depos} depos, ${DEMO_COUNTS.distributors} distributors, ${DEMO_COUNTS.subDistributors} sub distributors, ${DEMO_COUNTS.retailers} retailers`,
+        description: `${DEMO_COUNTS.distributors} distributors, ${DEMO_COUNTS.subDistributors} sub distributors, ${DEMO_COUNTS.retailers} retailers`,
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Generation failed')
@@ -80,11 +80,7 @@ export function DemoDataPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
-          <div className="rounded-lg bg-background p-3 border">
-            <p className="text-2xl font-bold">{DEMO_COUNTS.depos}</p>
-            <p className="text-muted-foreground text-xs">Depos</p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center text-sm">
           <div className="rounded-lg bg-background p-3 border">
             <p className="text-2xl font-bold">{DEMO_COUNTS.distributors}</p>
             <p className="text-muted-foreground text-xs">Distributors</p>
@@ -103,8 +99,8 @@ export function DemoDataPanel() {
           Demo login password for all generated accounts:{' '}
           <code className="font-mono bg-muted px-1 rounded">{DEMO_PASSWORD}</code>
           <br />
-          Emails: <code className="font-mono">depo1@demo.electrotrack.com</code>,{' '}
-          <code className="font-mono">distributor1@…</code>, etc.
+          Emails: <code className="font-mono">distributor1@demo.electrotrack.com</code>,{' '}
+          <code className="font-mono">sub1@…</code>, etc.
         </p>
 
         {seeded && (
