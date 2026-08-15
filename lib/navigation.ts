@@ -75,6 +75,18 @@ const shortagesNav = (base: string): NavItem => ({
 })
 
 export const ROLE_NAV: Record<UserRole, NavItem[]> = {
+  admin: [
+    { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { title: 'Users', href: '/admin/users', icon: Users },
+    { title: 'Products', href: '/admin/products', icon: Package },
+    { title: 'Stock', href: '/admin/stock', icon: Boxes },
+    { title: 'Shipments', href: '/admin/shipments', icon: Truck },
+    { title: 'Returns', href: '/admin/returns', icon: RotateCcw },
+    { title: 'Invoices', href: '/admin/invoices', icon: FileText },
+    { title: 'Reports', href: '/admin/reports', icon: BarChart3 },
+    { title: 'Subscriptions', href: '/admin/subscriptions', icon: UserPlus },
+    { title: 'Audit', href: '/admin/audit', icon: ClipboardCheck },
+  ],
   distributor: [
     { title: 'Dashboard', href: '/distributor', icon: LayoutDashboard },
     { title: 'Sub Distributors', href: '/distributor/sub-distributors', icon: Users },
@@ -117,12 +129,20 @@ export const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { title: 'History', href: '/retailer/history', icon: History },
     { title: 'Alerts', href: '/retailer/notifications', icon: Bell },
   ],
+  salesman: [
+    { title: 'Dashboard', href: '/salesman', icon: LayoutDashboard },
+    { title: 'Stock', href: '/salesman/stock', icon: Package },
+    { title: 'History', href: '/salesman/history', icon: History },
+    { title: 'Alerts', href: '/salesman/notifications', icon: Bell },
+  ],
 }
 
 export const ROLE_LABELS = PERM_LABELS
 
 export const ROLE_ICONS: Record<UserRole, LucideIcon> = {
+  admin: LayoutDashboard,
   distributor: Truck,
   sub_distributor: Warehouse,
   retailer: Store,
+  salesman: Users,
 }
