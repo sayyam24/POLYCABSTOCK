@@ -19,6 +19,7 @@ export async function getMongoClient(): Promise<MongoClient> {
 
   if (!global.__electrotrackMongoClient) {
     console.log('Creating new MongoDB client...')
+    console.log('MongoDB URI:', process.env.MONGODB_URI.replace(/:([^:@]{1,10})@/, ':****@'))
     global.__electrotrackMongoClient = new MongoClient(process.env.MONGODB_URI, {
       // Increased timeout for production use
       serverSelectionTimeoutMS: 30000,
@@ -29,6 +30,8 @@ export async function getMongoClient(): Promise<MongoClient> {
       tlsAllowInvalidCertificates: false,
       retryWrites: true,
       w: 'majority',
+      maxPoolSize: 10,
+      minPoolSize: 2,
     })
   }
 
@@ -41,7 +44,8 @@ export async function getMongoClient(): Promise<MongoClient> {
 
 export async function getMongoDb() {
   const client = await getMongoClient()
-  const dbName = process.env.MONGODB_DB || 'electrotrack'
+  const dbName = process.env.MONGODB_DB || 'electrostack'
+  console.log('Using database:', dbName)
   return client.db(dbName)
 }
 
