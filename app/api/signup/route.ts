@@ -8,10 +8,30 @@ function hashPassword(password: string): string {
   return Buffer.from(password).toString('base64')
 }
 
+// Verify if requester is an admin
+async function isAdminRequester(req: Request): Promise<boolean> {
+  try {
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return false
+    }
+
+    const token = authHeader.substring(7)
+    // In production, verify JWT token here
+    // For now, check if it's a valid admin session
+    const { getUserByEmail } = await import('@/lib/mongodb/collections')
+    const user = await getUserByEmail(token) // Using email as simple token for demo
+
+    return user?.role === 'admin'
+  } catch {
+    return false
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, password, name, role = 'retailer' } = body
+    const { email, password, name, role = 'retailer', adminToken } = body
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -25,6 +45,25 @@ export async function POST(req: Request) {
         { error: 'Password must be at least 6 characters' },
         { status: 400 }
       )
+    }
+
+    // Security: Only admins can create admin accounts
+    if (role === 'admin') {
+      // Check for admin token (email of existing admin)
+      if (!adminToken) {
+        return NextResponse.json(
+          { error: 'Admin token required to create admin account' },
+          { status: 403 }
+        )
+      }
+
+      const adminUser = await getUserByEmail(adminToken)
+      if (!adminUser || adminUser.role !== 'admin') {
+        return NextResponse.json(
+          { error: 'Invalid admin token. Only existing admins can create new admin accounts.' },
+          { status: 403 }
+        )
+      }
     }
 
     // Check if email already exists in users collection
