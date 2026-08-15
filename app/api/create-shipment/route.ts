@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { loadServerState, saveServerState } from '@/lib/db/server-state'
+import type { ShipmentStatus } from '@/lib/types'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
       })),
       invoiceFileName,
       invoiceDataUrl,
-      status: 'sent' as const,
+      status: 'sent' as ShipmentStatus,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }

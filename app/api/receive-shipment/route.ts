@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { loadServerState, saveServerState } from '@/lib/db/server-state'
+import type { ShipmentStatus } from '@/lib/types'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
         state.stock.push({
           id: `stock_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           orgId: receiverOrgId,
-          orgType: receiverOrg?.type || 'depo',
+          orgType: receiverOrg?.type || 'distributor',
           productId: item.productId,
           productName: item.productName,
           quantity: item.quantity,
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
       }
     }
 
-    shipment.status = 'received'
+    shipment.status = 'received' as ShipmentStatus
     shipment.receivedAt = new Date().toISOString()
     shipment.updatedAt = new Date().toISOString()
 
