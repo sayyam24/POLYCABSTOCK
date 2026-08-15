@@ -476,7 +476,7 @@ export class ElectroTrackFirebaseService {
 
     const q = query(
       collection(db(), COLLECTIONS.users),
-      where('authUid', '==', authUid),
+      where('id', '==', authUid),
     )
     const snap = await getDocs(q)
     if (snap.empty) return null
