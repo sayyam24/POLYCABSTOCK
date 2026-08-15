@@ -21,9 +21,14 @@ export async function getMongoClient(): Promise<MongoClient> {
     console.log('Creating new MongoDB client...')
     global.__electrotrackMongoClient = new MongoClient(process.env.MONGODB_URI, {
       // Increased timeout for production use
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      // Add SSL options for better compatibility with MongoDB Atlas
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      retryWrites: true,
+      w: 'majority',
     })
   }
 
