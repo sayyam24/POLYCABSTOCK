@@ -4,8 +4,9 @@ import { requireAdminAuth } from '@/lib/auth/admin-auth'
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
+  const { userId } = await params
   const session = {
     userId: request.headers.get('x-user-id'),
     role: request.headers.get('x-user-role'),
@@ -18,7 +19,7 @@ export async function PATCH(
     const { status } = await request.json()
     const state = await loadServerState()
 
-    const userIndex = state.users.findIndex(u => u.id === params.userId)
+    const userIndex = state.users.findIndex(u => u.id === userId)
     if (userIndex === -1) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
