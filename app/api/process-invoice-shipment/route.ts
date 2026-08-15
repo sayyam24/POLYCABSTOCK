@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { ShipmentStatus } from '@/lib/types'
 
 export async function POST(req: Request) {
   try {
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
         productName: item.product_name,
         quantity: item.quantity
       })),
-      status: receiverRole === 'retailer' ? 'received' : 'sent',
+      status: (receiverRole === 'retailer' ? 'received' : 'sent') as ShipmentStatus,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -143,7 +144,7 @@ export async function POST(req: Request) {
       receiverName: shipment.receiverName,
       receiverRole,
       items: shipment.items,
-      status: shipment.status,
+      status: shipment.status as ShipmentStatus,
       createdAt: new Date().toISOString()
     })
 
