@@ -103,9 +103,8 @@ export class ElectroTrackFirebaseService {
       createdAt: ts,
     }
 
-    const user: User & { authUid: string; createdBy: string } = {
+    const user: User = {
       id: userId,
-      authUid,
       email,
       name: input.name,
       role: input.role,
@@ -116,7 +115,6 @@ export class ElectroTrackFirebaseService {
       contact: input.contact,
       createdAt: ts,
       updatedAt: ts,
-      createdBy: creator.userId,
     }
 
     const batch = writeBatch(db())
@@ -160,8 +158,8 @@ export class ElectroTrackFirebaseService {
     session: AuthSession,
     rows: OpeningStockRow[],
   ): Promise<StockRecord[]> {
-    if (session.role !== 'admin' && session.role !== 'depo') {
-      throw new Error('Only Factory or Depo can upload stock from bill/Excel')
+    if (session.role !== 'admin' && session.role !== 'distributor') {
+      throw new Error('Only Factory or Distributor can upload stock from bill/Excel')
     }
 
     const updated: StockRecord[] = []
