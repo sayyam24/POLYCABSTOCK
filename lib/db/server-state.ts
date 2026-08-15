@@ -15,6 +15,14 @@ export function createEmptyDatabaseState(): DatabaseState {
     notifications: [],
     transactionHistory: [],
     retailerPurchases: [],
+    stockLedger: [],
+    productAliases: [],
+    bulkUploadBatches: [],
+    stockAdjustments: [],
+    shipmentShortages: [],
+    subscriptions: [],
+    payments: [],
+    auditLogs: [],
   }
 }
 

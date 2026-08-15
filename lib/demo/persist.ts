@@ -282,6 +282,15 @@ export async function resetAllDemoData(options?: {
     returns: [],
     notifications: [],
     transactionHistory: [],
+    retailerPurchases: [],
+    stockLedger: [],
+    productAliases: [],
+    bulkUploadBatches: [],
+    stockAdjustments: [],
+    shipmentShortages: [],
+    subscriptions: [],
+    payments: [],
+    auditLogs: [],
   }
   saveDatabase(minimal)
 
@@ -304,7 +313,7 @@ export async function ensureDemoOnStartup(): Promise<boolean> {
     markDemoSeeded({
       version: 'existing',
       generatedAt: new Date().toISOString(),
-      counts: { depos: 3, distributors: 10, subDistributors: 20, retailers: 50 },
+      counts: { distributors: 10, subDistributors: 20, retailers: 50 },
     })
     return false
   }
