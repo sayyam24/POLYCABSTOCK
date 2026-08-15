@@ -18,6 +18,7 @@ export async function getMongoClient(): Promise<MongoClient> {
   }
 
   if (!global.__electrotrackMongoClient) {
+    console.log('Creating new MongoDB client...')
     global.__electrotrackMongoClient = new MongoClient(process.env.MONGODB_URI, {
       // Increased timeout for production use
       serverSelectionTimeoutMS: 10000,
@@ -27,7 +28,9 @@ export async function getMongoClient(): Promise<MongoClient> {
   }
 
   const client = global.__electrotrackMongoClient
+  console.log('Connecting to MongoDB...')
   await client.connect()
+  console.log('MongoDB connected successfully')
   return client
 }
 
