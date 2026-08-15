@@ -66,6 +66,9 @@ class ElectroTrackLocalService {
         bulkUploadBatches: dataStore.bulkUploadBatches || [],
         stockAdjustments: dataStore.stockAdjustments || [],
         shipmentShortages: dataStore.shipmentShortages || [],
+        subscriptions: dataStore.subscriptions || [],
+        payments: dataStore.payments || [],
+        auditLogs: dataStore.auditLogs || [],
       }
     }
     // If MongoDB backend is enabled but data store not hydrated, return empty state
@@ -85,6 +88,9 @@ class ElectroTrackLocalService {
         bulkUploadBatches: [],
         stockAdjustments: [],
         shipmentShortages: [],
+        subscriptions: [],
+        payments: [],
+        auditLogs: [],
       }
     }
     // Otherwise fall back to localStorage

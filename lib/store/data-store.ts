@@ -1,7 +1,9 @@
 import type {
   AppNotification,
+  AuditLog,
   BulkUploadBatch,
   Organization,
+  Payment,
   Product,
   ProductAlias,
   RetailerPurchase,
@@ -11,6 +13,7 @@ import type {
   StockLedger,
   StockRecord,
   StockReturn,
+  Subscription,
   TransactionHistory,
   User,
 } from '@/lib/types'
@@ -30,6 +33,9 @@ export interface AppDataState {
   bulkUploadBatches: BulkUploadBatch[]
   stockAdjustments: StockAdjustment[]
   shipmentShortages: ShipmentShortage[]
+  subscriptions: Subscription[]
+  payments: Payment[]
+  auditLogs: AuditLog[]
   isHydrated: boolean
 }
 
@@ -48,6 +54,9 @@ const emptyState: AppDataState = {
   bulkUploadBatches: [],
   stockAdjustments: [],
   shipmentShortages: [],
+  subscriptions: [],
+  payments: [],
+  auditLogs: [],
   isHydrated: false,
 }
 
