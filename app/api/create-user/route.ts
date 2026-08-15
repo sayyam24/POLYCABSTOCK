@@ -74,6 +74,7 @@ export async function POST(req: Request) {
 
     const user = {
       id: userId,
+      authUid: userId,
       email,
       name: input.name,
       role: input.role,

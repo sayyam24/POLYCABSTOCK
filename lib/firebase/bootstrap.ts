@@ -35,6 +35,7 @@ export async function ensureFirestoreProfile(
   const ts = isoNow()
   const profile: User = {
     id: firebaseUser.uid,
+    authUid: firebaseUser.uid,
     email,
     name: firebaseUser.displayName ?? 'Admin User',
     role: 'admin',

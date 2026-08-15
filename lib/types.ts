@@ -27,6 +27,7 @@ export interface AuthSession {
 
 export interface User {
   id: string
+  authUid?: string // Firebase Auth user ID (optional for Firebase backend)
   email: string
   name: string
   role: UserRole
