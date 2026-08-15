@@ -7,6 +7,12 @@ function verifyPassword(password: string, hashedPassword: string): boolean {
   return Buffer.from(password).toString('base64') === hashedPassword
 }
 
+// Only these 2 admin emails are allowed to login
+const ALLOWED_ADMIN_EMAILS = [
+  'admin@polycabstock.com',
+  'admin2@polycabstock.com'
+]
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -21,13 +27,22 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.trim().toLowerCase()
 
+    // Security: Only allow the 2 specific admin emails
+    if (!ALLOWED_ADMIN_EMAILS.includes(normalizedEmail)) {
+      console.log('Login API: Unauthorized email attempt:', normalizedEmail)
+      return NextResponse.json(
+        { error: 'Access denied. Only authorized admins can login.' },
+        { status: 403 }
+      )
+    }
+
     // Get user from separate users collection
     const user = await getUserByEmail(normalizedEmail)
     console.log('Login API: User found:', !!user)
 
     if (!user) {
       return NextResponse.json(
-        { error: expectedRole ? `No approved ${expectedRole} account for this email.` : 'No account for this email. Please sign up first.' },
+        { error: 'No account for this email. Contact system administrator.' },
         { status: 401 }
       )
     }
@@ -37,6 +52,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'Account is not approved. Please contact admin.' },
         { status: 401 }
+      )
+    }
+
+    // Security: Only admin role allowed
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Access denied. Only admin accounts are allowed.' },
+        { status: 403 }
       )
     }
 
