@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Upload, FileText, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -291,9 +291,9 @@ export function ShipmentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <Label>Receiver</Label>
+        <Label className="text-sm font-semibold">Receiver</Label>
         <Select value={effectiveReceiverOrgId} onValueChange={setReceiverOrgId}>
-          <SelectTrigger>
+          <SelectTrigger className="h-10 border-border/50 focus:border-primary/50">
             <SelectValue placeholder="Select receiver" />
           </SelectTrigger>
           <SelectContent>
@@ -308,25 +308,29 @@ export function ShipmentForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Invoice number</Label>
+          <Label className="text-sm font-semibold">Invoice number</Label>
           <Input
             value={invoiceNumber}
             onChange={(e) => setInvoiceNumber(e.target.value)}
             placeholder="INV-001"
             required
+            className="h-10 border-border/50 focus:border-primary/50"
           />
         </div>
         <div className="space-y-2">
-          <Label>
+          <Label className="text-sm font-semibold">
             Bill copy {requireBillCopy ? '(required)' : '(optional)'}
           </Label>
-          <Input
-            type="file"
-            accept="image/*,.pdf"
-            multiple
-            onChange={handleInvoiceFile}
-            required={requireBillCopy}
-          />
+          <div className="relative">
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              onChange={handleInvoiceFile}
+              required={requireBillCopy}
+              className="h-10 border-border/50 focus:border-primary/50 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+          </div>
           {invoiceFiles.length > 1 && (
             <Button
               type="button"
@@ -334,8 +338,9 @@ export function ShipmentForm({
               size="sm"
               onClick={handleBulkParse}
               disabled={parsing}
-              className="mt-2"
+              className="mt-2 h-9 border-border/50 hover:bg-accent/50"
             >
+              <FileText className="h-4 w-4 mr-2" />
               {parsing ? 'Parsing...' : 'Parse Invoices'}
             </Button>
           )}
@@ -346,97 +351,116 @@ export function ShipmentForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Import line items from Excel / CSV</Label>
-        <Input
-          type="file"
-          accept=".csv,.txt,.xlsx,.xls"
-          onChange={(e) => e.target.files?.[0] && handleItemsSpreadsheet(e.target.files[0])}
-        />
+        <Label className="text-sm font-semibold">Import line items from Excel / CSV</Label>
+        <div className="relative">
+          <Input
+            type="file"
+            accept=".csv,.txt,.xlsx,.xls"
+            onChange={(e) => e.target.files?.[0] && handleItemsSpreadsheet(e.target.files[0])}
+            className="h-10 border-border/50 focus:border-primary/50 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          />
+        </div>
         <p className="text-xs text-muted-foreground">
           Columns: Product name, Quantity (same names as in product list).
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label>Products on bill</Label>
+          <Label className="text-sm font-semibold">Products on bill</Label>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setRows((prev) => [...prev, emptyRow()])}
+            className="h-9 border-border/50 hover:bg-accent/50"
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 mr-2" />
             Add line
           </Button>
         </div>
 
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="grid gap-3 sm:grid-cols-[1fr_120px_1fr_auto] items-end border rounded-lg p-3"
-          >
-            <div className="space-y-1">
-              <Label className="text-xs">Product</Label>
-              <Select
-                value={row.productId}
-                onValueChange={(v) => handleProductChange(index, v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} (stock: {stockQuantities[p.id] ?? 0})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Qty</Label>
-              <Input
-                type="number"
-                min={1}
-                value={row.quantity || ''}
-                onChange={(e) =>
-                  updateRow(index, { quantity: Number(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Line notes</Label>
-              <Input
-                value={row.notes ?? ''}
-                onChange={(e) => updateRow(index, { notes: e.target.value })}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={rows.length <= 1}
-              onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+        <div className="space-y-3">
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              className="grid gap-3 sm:grid-cols-[1fr_120px_1fr_auto] items-end border border-border/50 rounded-xl p-4 bg-card/50 hover:bg-card transition-colors"
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Product</Label>
+                <Select
+                  value={row.productId}
+                  onValueChange={(v) => handleProductChange(index, v)}
+                >
+                  <SelectTrigger className="h-9 border-border/50 focus:border-primary/50">
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} (stock: {stockQuantities[p.id] ?? 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Qty</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={row.quantity || ''}
+                  onChange={(e) =>
+                    updateRow(index, { quantity: Number(e.target.value) || 0 })
+                  }
+                  className="h-9 border-border/50 focus:border-primary/50"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Line notes</Label>
+                <Input
+                  value={row.notes ?? ''}
+                  onChange={(e) => updateRow(index, { notes: e.target.value })}
+                  className="h-9 border-border/50 focus:border-primary/50"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={rows.length <= 1}
+                onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+                className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Notes (optional)</Label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        <Label className="text-sm font-semibold">Notes (optional)</Label>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="border-border/50 focus:border-primary/50 resize-none"
+        />
       </div>
 
       {error && (
-        <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-          {error}
-        </p>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
       )}
 
-      <Button type="submit" disabled={loading}>
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full h-11 font-medium"
+      >
         {loading ? 'Sending...' : submitLabel}
       </Button>
     </form>
