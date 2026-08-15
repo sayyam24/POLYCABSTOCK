@@ -27,22 +27,13 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.trim().toLowerCase()
 
-    // Security: Only allow the 2 specific admin emails
-    if (!ALLOWED_ADMIN_EMAILS.includes(normalizedEmail)) {
-      console.log('Login API: Unauthorized email attempt:', normalizedEmail)
-      return NextResponse.json(
-        { error: 'Access denied. Only authorized admins can login.' },
-        { status: 403 }
-      )
-    }
-
     // Get user from separate users collection
     const user = await getUserByEmail(normalizedEmail)
     console.log('Login API: User found:', !!user)
 
     if (!user) {
       return NextResponse.json(
-        { error: 'No account for this email. Contact system administrator.' },
+        { error: 'No account for this email. Please sign up first.' },
         { status: 401 }
       )
     }
@@ -55,10 +46,11 @@ export async function POST(req: Request) {
       )
     }
 
-    // Security: Only admin role allowed
-    if (user.role !== 'admin') {
+    // Security: Only restrict admin login to specific emails
+    if (user.role === 'admin' && !ALLOWED_ADMIN_EMAILS.includes(normalizedEmail)) {
+      console.log('Login API: Unauthorized admin email attempt:', normalizedEmail)
       return NextResponse.json(
-        { error: 'Access denied. Only admin accounts are allowed.' },
+        { error: 'Access denied. Only authorized admins can login.' },
         { status: 403 }
       )
     }
