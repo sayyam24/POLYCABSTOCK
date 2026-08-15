@@ -182,8 +182,8 @@ export function ShipmentForm({
             invoicesProcessed: successfulResults.length,
             itemsExtracted: parsedItems.length,
             extractionMethod: firstResult.extraction_method,
-            matchedItems: parsedItems.filter(i => i.notes === '').length,
-            manualReviewItems: parsedItems.filter(i => i.notes !== '').length
+            matchedItems: parsedItems.filter((i: any) => i.notes === '').length,
+            manualReviewItems: parsedItems.filter((i: any) => i.notes !== '').length
           })
         } else {
           toast.error('No items could be extracted from invoices')
