@@ -34,7 +34,7 @@ export function CreateUserForm({ allowedRoles, onCreated }: CreateUserFormProps)
   const [location, setLocation] = useState('')
   const [contact, setContact] = useState('')
   const [role, setRole] = useState<UserRole>(
-    () => allowedRoles?.[0] ?? 'depo',
+    () => allowedRoles?.[0] ?? 'distributor',
   )
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -47,7 +47,7 @@ export function CreateUserForm({ allowedRoles, onCreated }: CreateUserFormProps)
 
   const creatable =
     allowedRoles ??
-    (['admin', 'depo', 'distributor', 'sub_distributor', 'retailer'] as UserRole[]).filter(
+    (['admin', 'distributor', 'sub_distributor', 'retailer'] as UserRole[]).filter(
       (r) => canCreateRole(session.role, r),
     )
 
