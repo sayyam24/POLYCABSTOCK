@@ -23,9 +23,7 @@ export function SendShipmentView({ title }: SendShipmentViewProps) {
     if (!session || !receiverRole) return []
     const orgs = electroTrackService.getOrganizations(receiverRole)
     if (session.role === 'admin') {
-      return orgs.filter(
-        (o) => o.parentId === session.orgId || o.type === 'depo',
-      )
+      return orgs.filter((o) => o.parentId === session.orgId)
     }
     return orgs.filter((o) => o.parentId === session.orgId)
   }, [session, receiverRole])
@@ -51,7 +49,7 @@ export function SendShipmentView({ title }: SendShipmentViewProps) {
           senderName: session.name,
           senderId: session.userId,
           receiverOrgId: data.receiverOrgId,
-          receiverRole: receiver?.type || 'depo',
+          receiverRole: receiver?.type || 'distributor',
           receiverName: receiver?.name || 'Unknown',
           receiverId: receiver?.ownerUserId || null,
           items: data.items,

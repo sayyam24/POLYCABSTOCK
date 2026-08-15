@@ -160,7 +160,7 @@ export class ElectroTrackFirebaseService {
     rows: OpeningStockRow[],
   ): Promise<StockRecord[]> {
     if (session.role !== 'admin' && session.role !== 'distributor') {
-      throw new Error('Only Factory or Distributor can upload stock from bill/Excel')
+      throw new Error('Only Admin or Distributor can upload stock from bill/Excel')
     }
 
     const updated: StockRecord[] = []

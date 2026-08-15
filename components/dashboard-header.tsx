@@ -33,10 +33,10 @@ export function DashboardHeader({
 
   const defaultNotifications: Record<UserRole, string> = {
     admin: '/admin/notifications',
-    depo: '/depo/notifications',
     distributor: '/distributor/notifications',
     sub_distributor: '/sub-distributor/notifications',
     retailer: '/retailer/notifications',
+    salesman: '/salesman/notifications',
   }
   const notifHref =
     notificationsHref ?? (session ? defaultNotifications[session.role] : '/admin/notifications')

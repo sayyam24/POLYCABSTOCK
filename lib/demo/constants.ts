@@ -7,7 +7,6 @@ export const DEMO_DATA_VERSION = 'v1'
 export const DEMO_ID_PREFIX = 'demo'
 
 export const DEMO_COUNTS = {
-  depos: 3,
   distributors: 10,
   subDistributors: 20,
   retailers: 50,
@@ -49,7 +48,6 @@ export const BUSINESS_PREFIXES = [
 ]
 
 export const ROLE_SUFFIX: Record<string, string> = {
-  depo: 'Depo',
   distributor: 'Distributors',
   sub_distributor: 'Sub Distribution',
   retailer: 'Retail',

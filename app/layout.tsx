@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
   title: 'ElectroTrack - Electronics Stock Management',
-  description: 'Modern SaaS platform for managing electronics inventory across Factory, Distributor, and Retailer supply chain',
+  description: 'Modern SaaS platform for managing electronics inventory across Distributor, Sub-Distributor, and Retailer supply chain',
 }
 
 export default function RootLayout({

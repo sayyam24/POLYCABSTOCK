@@ -81,7 +81,7 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
     updatedAt: tsAt(rng),
   }
   users.push(adminUser)
-  organizations.push({
+  const adminOrg: Organization = {
     id: demoId('org', 0),
     name: 'ElectroTrack HQ',
     type: 'admin',
@@ -90,49 +90,11 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
     contact: '+91 98000 00000',
     ownerUserId: adminUser.id,
     createdAt: tsAt(rng),
-  })
-
-  const depos: OrgNode[] = []
-  for (let i = 1; i <= DEMO_COUNTS.depos; i++) {
-    const city = INDIAN_CITIES[(i - 1) % INDIAN_CITIES.length]
-    const prefix = pick(rng, BUSINESS_PREFIXES)
-    const name = `${prefix} ${city} Depo`
-    const email = `depo${i}@${DEMO_EMAIL_DOMAIN}`
-    const orgId = demoId('org_depo', i)
-    const userId = demoId('user_depo', i)
-
-    const user: User = {
-      id: userId,
-      email,
-      name,
-      role: 'depo',
-      status: 'approved',
-      parentId: adminUser.id,
-      orgId,
-      location: city,
-      contact: `+91 98${String(10000000 + i).slice(0, 8)}`,
-      createdAt: tsAt(rng, i),
-      updatedAt: tsAt(rng, i),
-    }
-    const org: Organization = {
-      id: orgId,
-      name,
-      type: 'depo',
-      parentId: null,
-      location: `${city}, India`,
-      contact: user.contact ?? '',
-      ownerUserId: userId,
-      createdAt: tsAt(rng, i),
-    }
-    users.push(user)
-    organizations.push(org)
-    depos.push({ org, user })
-    credentials.push({ email, password: '', role: 'depo', name })
   }
+  organizations.push(adminOrg)
 
   const distributors: OrgNode[] = []
   for (let i = 1; i <= DEMO_COUNTS.distributors; i++) {
-    const parentDepo = depos[(i - 1) % depos.length]
     const city = pick(rng, INDIAN_CITIES)
     const prefix = pick(rng, BUSINESS_PREFIXES)
     const name = `${prefix} ${city} Distributors`
@@ -146,7 +108,7 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
       name,
       role: 'distributor',
       status: 'approved',
-      parentId: parentDepo.user.id,
+      parentId: adminUser.id,
       orgId,
       location: city,
       contact: `+91 97${String(10000000 + i).slice(0, 8)}`,
@@ -157,7 +119,7 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
       id: orgId,
       name,
       type: 'distributor',
-      parentId: parentDepo.org.id,
+      parentId: adminOrg.id,
       location: `${city}, India`,
       contact: user.contact ?? '',
       ownerUserId: userId,
@@ -269,16 +231,6 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
       const to = ensureOrg(toOrgId)
       from.set(item.productId, Math.max(0, (from.get(item.productId) ?? 0) - item.quantity))
       to.set(item.productId, (to.get(item.productId) ?? 0) + item.quantity)
-    }
-  }
-
-  for (const depo of depos) {
-    for (const product of products) {
-      let qty = intBetween(rng, 80, 200)
-      if (product.category === 'Fans') qty = intBetween(rng, 400, 600)
-      if (product.name.includes('LED Bulb')) qty = intBetween(rng, 300, 500)
-      if (product.category === 'Lighting') qty = intBetween(rng, 200, 400)
-      addStock(depo.org.id, product.id, qty)
     }
   }
 
@@ -398,16 +350,6 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
     return shipment
   }
 
-  for (const depo of depos) {
-    const childDists = distributors.filter((d) => d.org.parentId === depo.org.id)
-    for (const dist of childDists) {
-      const n = intBetween(rng, 2, 3)
-      for (let j = 0; j < n; j++) {
-        createShipment(depo, dist, rng() > 0.25 ? 'received' : 'sent')
-      }
-    }
-  }
-
   for (const dist of distributors) {
     const childSubs = subDistributors.filter((s) => s.org.parentId === dist.org.id)
     for (const sub of childSubs) {
@@ -425,7 +367,7 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
     }
   }
 
-  const allOrgs = [...depos, ...distributors, ...subDistributors, ...retailers]
+  const allOrgs = [...distributors, ...subDistributors, ...retailers]
   for (const node of allOrgs) {
     const orgStock = stockMap.get(node.org.id)
     if (!orgStock) continue
@@ -480,6 +422,15 @@ export function generateDemoDataset(seed = 20260424): GeneratedDemoData {
     notifications,
     transactionHistory,
     credentials,
+    retailerPurchases: [],
+    stockLedger: [],
+    productAliases: [],
+    bulkUploadBatches: [],
+    stockAdjustments: [],
+    shipmentShortages: [],
+    subscriptions: [],
+    payments: [],
+    auditLogs: [],
     meta: {
       version: DEMO_DATA_VERSION,
       generatedAt,
