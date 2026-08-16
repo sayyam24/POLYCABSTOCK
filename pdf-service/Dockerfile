@@ -2,14 +2,10 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies required by paddlepaddle and opencv
+# Install system dependencies required by paddlepaddle
 RUN apt-get update && apt-get install -y \
     libgomp1 \
     libglib2.0-0 \
-    libgl1-mesa-glx \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
