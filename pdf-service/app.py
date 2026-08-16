@@ -7,23 +7,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import fitz  # PyMuPDF
 import pdfplumber
-from paddleocr import PaddleOCR
-import cv2
-import numpy as np
-from PIL import Image
 from rapidfuzz import process, fuzz
 
 app = Flask(__name__)
 CORS(app)
-
-# Initialize PaddleOCR (lazy loading to avoid startup delay)
-ocr_engine = None
-
-def get_ocr_engine():
-    global ocr_engine
-    if ocr_engine is None:
-        ocr_engine = PaddleOCR(use_angle_cls=True, lang='en')
-    return ocr_engine
 
 def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
     """Extract text from PDF using PyMuPDF (fitz)"""
@@ -50,35 +37,6 @@ def extract_text_from_pdf_pdfplumber(pdf_path: str) -> str:
         print(f"pdfplumber extraction error: {e}")
         return ""
 
-def extract_text_from_scanned_pdf(pdf_path: str) -> str:
-    """Extract text from scanned PDF using PaddleOCR"""
-    text = ""
-    try:
-        ocr = get_ocr_engine()
-        doc = fitz.open(pdf_path)
-        
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            # Convert PDF page to image
-            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            
-            # Convert to numpy array for OpenCV
-            img_array = np.array(img)
-            
-            # Run OCR
-            result = ocr.ocr(img_array, cls=True)
-            
-            if result and result[0]:
-                for line in result[0]:
-                    if line[0]:
-                        text += line[1][0] + "\n"
-        
-        doc.close()
-        return text
-    except Exception as e:
-        print(f"PaddleOCR extraction error: {e}")
-        return ""
 
 def extract_invoice_data(text: str) -> Dict:
     """Extract invoice data from text using regex patterns"""
@@ -251,10 +209,6 @@ def process_pdf():
             if len(text.strip()) < 50:
                 text = extract_text_from_pdf_pdfplumber(temp_path)
             
-            # If still very little text, assume it's scanned and use OCR
-            if len(text.strip()) < 50:
-                text = extract_text_from_scanned_pdf(temp_path)
-            
             # Extract invoice data
             invoice_data = extract_invoice_data(text)
             
@@ -314,10 +268,6 @@ def process_bulk_pdf():
                     # If text extraction failed, try pdfplumber
                     if len(text.strip()) < 50:
                         text = extract_text_from_pdf_pdfplumber(temp_path)
-                    
-                    # If still very little text, use OCR
-                    if len(text.strip()) < 50:
-                        text = extract_text_from_scanned_pdf(temp_path)
                     
                     # Extract invoice data
                     invoice_data = extract_invoice_data(text)
