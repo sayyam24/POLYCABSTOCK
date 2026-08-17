@@ -13,14 +13,38 @@ app = Flask(__name__)
 CORS(app)
 
 def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
-    """Extract text from PDF using PyMuPDF (fitz)"""
+    """Extract text from PDF using PyMuPDF (fitz) with multiple extraction modes"""
     text = ""
     try:
         doc = fitz.open(pdf_path)
         for page in doc:
-            text += page.get_text()
+            # Try different text extraction modes
+            # Mode "text": default (preserves layout)
+            extracted = page.get_text("text")
+            
+            # If default mode returns very little, try "blocks" mode
+            if len(extracted.strip()) < 50:
+                extracted = page.get_text("blocks")
+                if extracted:
+                    extracted = "\n".join([block[4] for block in extracted if block[4]])
+            
+            # If still very little, try "words" mode
+            if not extracted or len(extracted.strip()) < 50:
+                extracted = page.get_text("words")
+                if extracted:
+                    extracted = " ".join([word[4] for word in extracted])
+            
+            text += extracted + "\n"
         doc.close()
-        return text
+        
+        # Filter out PDF structure garbage (lines with /Length, /MediaBox, etc.)
+        filtered_lines = []
+        for line in text.split('\n'):
+            # Skip lines that look like PDF structure data
+            if not re.search(r'^\s*\d+\s+×\s+\/[A-Z][a-z]+', line):
+                filtered_lines.append(line)
+        
+        return "\n".join(filtered_lines)
     except Exception as e:
         print(f"PyMuPDF extraction error: {e}")
         return ""
