@@ -881,6 +881,81 @@ def parse_invoices():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/diagnose-pdf', methods=['POST'])
+def diagnose_pdf():
+    """Pure diagnostic endpoint - ONLY extracts text, NO parsing, NO product matching"""
+    print("=" * 80)
+    print("DIAGNOSTIC PDF EXTRACTION - NO PARSING")
+    print("=" * 80)
+    
+    try:
+        # Accept PDF via request.files
+        if 'pdf' not in request.files:
+            print("ERROR: No PDF file in request.files")
+            return jsonify({'error': 'No PDF file provided'}), 400
+        
+        pdf_file = request.files['pdf']
+        if pdf_file.filename == '':
+            print("ERROR: Empty filename")
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Read as binary - NO UTF-8 decoding, NO string conversion
+        pdf_bytes = pdf_file.read()
+        print(f"=== PDF EXTRACTION DEBUG ===")
+        print(f"File: {pdf_file.filename}")
+        print(f"Size: {len(pdf_bytes)} bytes")
+        
+        # Open with fitz using stream - NO temp file
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        print(f"Pages: {len(doc)}")
+        print(f"Extraction method: PyMuPDF")
+        
+        # Extract text page by page using get_text("text")
+        extracted_pages = []
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text("text")
+            extracted_pages.append(text)
+            print(f"Page {page_num}: extracted {len(text)} characters")
+        
+        doc.close()
+        
+        extracted_text = "\n".join(extracted_pages)
+        
+        # Log first 1000 characters
+        print(f"Extracted text preview:")
+        print("=" * 80)
+        print(extracted_text[:1000])
+        print("=" * 80)
+        print("=== END DEBUG ===")
+        
+        # Check for PDF structure markers
+        pdf_markers = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
+                      '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size']
+        found_markers = [marker for marker in pdf_markers if marker in extracted_text]
+        
+        if found_markers:
+            print(f"WARNING: Found PDF structure markers: {found_markers}")
+            print("This indicates the PDF bytes are being processed incorrectly")
+        
+        # Return ONLY the extracted text - NO parsing, NO product matching
+        return jsonify({
+            'success': True,
+            'filename': pdf_file.filename,
+            'pages': len(doc) if 'doc' in locals() else 0,
+            'extraction_method': 'pymupdf',
+            'extracted_text_length': len(extracted_text),
+            'extracted_text_preview': extracted_text[:1000],
+            'extracted_text': extracted_text,
+            'found_pdf_markers': found_markers
+        })
+        
+    except Exception as e:
+        print(f"ERROR in diagnose-pdf: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
