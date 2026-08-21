@@ -13,35 +13,50 @@ app = Flask(__name__)
 CORS(app)
 
 def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
-    """Extract text from PDF using PyMuPDF (fitz) with multiple extraction modes"""
+    """Extract text from PDF using PyMuPDF (fitz) with aggressive filtering"""
     text = ""
     try:
         doc = fitz.open(pdf_path)
         for page in doc:
-            # Try different text extraction modes
-            # Mode "text": default (preserves layout)
-            extracted = page.get_text("text")
-            
-            # If default mode returns very little, try "blocks" mode
-            if len(extracted.strip()) < 50:
-                extracted = page.get_text("blocks")
-                if extracted:
-                    extracted = "\n".join([block[4] for block in extracted if block[4]])
-            
-            # If still very little, try "words" mode
-            if not extracted or len(extracted.strip()) < 50:
-                extracted = page.get_text("words")
-                if extracted:
-                    extracted = " ".join([word[4] for word in extracted])
-            
+            # Try "text" mode with layout preservation
+            extracted = page.get_text("text", sort=True)
             text += extracted + "\n"
         doc.close()
         
-        # Filter out PDF structure garbage (lines with /Length, /MediaBox, etc.)
+        # Aggressive filtering to remove PDF structure data
         filtered_lines = []
         for line in text.split('\n'):
-            # Skip lines that look like PDF structure data
-            if not re.search(r'^\s*\d+\s+×\s+\/[A-Z][a-z]+', line):
+            line = line.strip()
+            
+            # Skip empty lines
+            if not line:
+                continue
+            
+            # Skip lines with PDF structure markers
+            if re.search(r'^\s*\d+\s+×\s+\/[A-Z]', line):
+                continue
+            
+            # Skip lines with PDF object references
+            if re.search(r'^\s*\d+\s+\d+\s+obj', line):
+                continue
+            
+            # Skip lines with binary garbage (lots of special characters)
+            if len(re.findall(r'[^\x20-\x7E]', line)) > len(line) * 0.3:
+                continue
+            
+            # Skip lines that are mostly numbers and symbols
+            if re.search(r'^[\d\s×\[\](),./\-]+$', line):
+                continue
+            
+            # Skip lines with PDF keywords
+            pdf_keywords = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
+                          '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size',
+                          '/Filter', '/Subtype', '/Type', '/Resources', '/ProcSet']
+            if any(keyword in line for keyword in pdf_keywords):
+                continue
+            
+            # Keep lines that look like actual text
+            if len(line) > 2 and re.search(r'[A-Za-z]{2,}', line):
                 filtered_lines.append(line)
         
         return "\n".join(filtered_lines)
