@@ -4,3 +4,4 @@ rapidfuzz==3.9.6
 flask==3.0.3
 flask-cors==4.0.1
 werkzeug==3.0.3
+pymupdf==1.23.8

@@ -10,9 +10,75 @@ import re
 from rapidfuzz import process, fuzz
 from typing import List, Dict, Optional, Tuple
 import uuid
+import fitz  # PyMuPDF
 
 app = Flask(__name__)
 CORS(app)
+
+def is_valid_extracted_text(text: str) -> bool:
+    """Strict validation to reject PDF structure data and binary content"""
+    if not text or len(text.strip()) < 10:
+        return False
+    
+    # Check for PDF structure markers - IMMEDIATE REJECTION
+    pdf_markers = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
+                  '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size',
+                  '/Filter', '/Subtype', '/Type', '/Resources', '/ProcSet', '/XObject',
+                  '/Count', '/Font', '/BaseFont', '/Encoding', '/ToUnicode']
+    
+    for marker in pdf_markers:
+        if marker in text:
+            print(f"VALIDATION FAILED: Found PDF marker '{marker}' in extracted text")
+            return False
+    
+    # Check for patterns like "270 × /Length"
+    if re.search(r'\d+\s+×\s+\/[A-Z]', text):
+        print("VALIDATION FAILED: Found '× /Marker' pattern in extracted text")
+        return False
+    
+    # Check for binary garbage (lots of non-printable characters)
+    non_printable = len(re.findall(r'[^\x20-\x7E\r\n\t]', text))
+    if non_printable > len(text) * 0.1:  # More strict: only 10% allowed
+        print(f"VALIDATION FAILED: Too many non-printable characters ({non_printable}/{len(text)})")
+        return False
+    
+    # Check if text contains actual words (at least some letters)
+    if not re.search(r'[A-Za-z]{3,}', text):
+        print("VALIDATION FAILED: No actual words found in extracted text")
+        return False
+    
+    print("VALIDATION PASSED: Extracted text appears valid")
+    return True
+
+def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
+    """Extract text from PDF bytes using fitz.open(stream=) with strict validation"""
+    text = ""
+    try:
+        # Use fitz.open with stream as specified
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            # Use page.get_text("text") as specified
+            extracted = page.get_text("text")
+            text += extracted + "\n"
+        
+        doc.close()
+        
+        # Debug: Print first 500 characters
+        print(f"DEBUG: Extracted text (first 500 chars): {text[:500]}")
+        
+        # Strict validation
+        if not is_valid_extracted_text(text):
+            print("EXTRACTION FAILED: Extracted text failed validation")
+            return ""
+        
+        print(f"EXTRACTION SUCCESS: Extracted {len(text)} characters")
+        return text
+        
+    except Exception as e:
+        print(f"PyMuPDF extraction error: {e}")
+        return ""
 
 class InvoiceParser:
     def __init__(self):
@@ -241,8 +307,8 @@ class InvoiceParser:
             print(f"Error extracting item from row: {e}")
             return None
     
-    def parse_invoice(self, pdf_path: str, products: List[Dict]) -> Dict:
-        """Parse single invoice PDF"""
+    def parse_invoice(self, pdf_bytes: bytes, products: List[Dict]) -> Dict:
+        """Parse single invoice PDF from bytes"""
         result = {
             'success': False,
             'invoice_number': None,
@@ -254,12 +320,12 @@ class InvoiceParser:
         }
         
         try:
-            # Extract text using pypdfium2
-            text = self.extract_text_pymupdf(pdf_path)
-            extraction_method = 'pypdfium2'
+            # Extract text using new fitz-based method with validation
+            text = extract_text_from_pdf_bytes(pdf_bytes)
+            extraction_method = 'pymupdf_stream'
             
-            if not text or len(text.strip()) < 50:
-                result['error'] = 'Failed to extract text from PDF'
+            if not text:
+                result['error'] = 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.'
                 return result
             
             # Extract metadata
@@ -644,10 +710,13 @@ def parse_invoices():
         
         # Parse invoices sequentially to avoid interleaved logs and extraction issues
         results = []
-        for pdf_path in pdf_paths:
+        for i, pdf_path in enumerate(pdf_paths):
             try:
-                print(f"\n--- Processing PDF: {pdf_path} ---")
-                result = parser.parse_invoice(pdf_path, products)
+                print(f"\n--- Processing PDF {i}: {pdf_path} ---")
+                # Read PDF bytes from file
+                with open(pdf_path, 'rb') as f:
+                    pdf_bytes = f.read()
+                result = parser.parse_invoice(pdf_bytes, products)
                 
                 # Check for duplicate invoice number
                 if result.get('invoice_number'):
