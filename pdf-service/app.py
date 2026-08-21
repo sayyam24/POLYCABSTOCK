@@ -12,13 +12,46 @@ from rapidfuzz import process, fuzz
 app = Flask(__name__)
 CORS(app)
 
+def is_valid_extracted_text(text: str) -> bool:
+    """Validate that extracted text doesn't contain PDF structure data"""
+    if not text or len(text.strip()) < 10:
+        return False
+    
+    # Check for PDF structure markers
+    pdf_markers = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
+                  '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size',
+                  '/Filter', '/Subtype', '/Type', '/Resources', '/ProcSet', '/XObject',
+                  '/Count', '/Font']
+    
+    # If text contains PDF markers, it's invalid
+    for marker in pdf_markers:
+        if marker in text:
+            return False
+    
+    # Check for patterns like "270 × /Length"
+    if re.search(r'\d+\s+×\s+\/[A-Z]', text):
+        return False
+    
+    # Check for binary garbage (lots of non-printable characters)
+    non_printable = len(re.findall(r'[^\x20-\x7E\r\n\t]', text))
+    if non_printable > len(text) * 0.2:
+        return False
+    
+    # Check if text contains actual words (at least some letters)
+    if not re.search(r'[A-Za-z]{3,}', text):
+        return False
+    
+    return True
+
 def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
-    """Extract text from PDF using PyMuPDF (fitz) - fallback method"""
+    """Extract text from PDF using PyMuPDF (fitz) page-by-page"""
     text = ""
     try:
         doc = fitz.open(pdf_path)
-        for page in doc:
-            extracted = page.get_text("text", sort=True)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            # Use page.get_text("text") as specified
+            extracted = page.get_text("text")
             text += extracted + "\n"
         doc.close()
         return text
@@ -206,9 +239,16 @@ def process_pdf():
             # Try pdfplumber first (better text extraction)
             text = extract_text_from_pdf_pdfplumber(temp_path)
             
-            # If pdfplumber failed, try PyMuPDF as fallback
-            if len(text.strip()) < 50:
+            # If pdfplumber failed or text is invalid, try PyMuPDF as fallback
+            if not is_valid_extracted_text(text):
                 text = extract_text_from_pdf_pymupdf(temp_path)
+            
+            # If still invalid, return error
+            if not is_valid_extracted_text(text):
+                return jsonify({
+                    'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.',
+                    'extracted_text_preview': text[:200] if text else 'No text extracted'
+                }), 400
             
             # Extract invoice data
             invoice_data = extract_invoice_data(text)
@@ -266,9 +306,22 @@ def process_bulk_pdf():
                     # Try pdfplumber first (better text extraction)
                     text = extract_text_from_pdf_pdfplumber(temp_path)
                     
-                    # If pdfplumber failed, try PyMuPDF as fallback
-                    if len(text.strip()) < 50:
+                    # If pdfplumber failed or text is invalid, try PyMuPDF as fallback
+                    if not is_valid_extracted_text(text):
                         text = extract_text_from_pdf_pymupdf(temp_path)
+                    
+                    # If still invalid, mark as failed
+                    if not is_valid_extracted_text(text):
+                        errors.append({
+                            'index': idx,
+                            'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.'
+                        })
+                        results.append({
+                            'index': idx,
+                            'success': False,
+                            'error': 'Failed to extract valid text from PDF'
+                        })
+                        continue
                     
                     # Extract invoice data
                     invoice_data = extract_invoice_data(text)
