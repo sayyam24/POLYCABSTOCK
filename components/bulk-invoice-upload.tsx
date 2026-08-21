@@ -124,34 +124,26 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
     // Combine both sets
     existingInvoiceNumbers.forEach(num => existingTxInvoiceNumbers.add(num))
     
-    // Convert files to base64
-    const pdfFiles = await Promise.all(
-      files.map(async (file) => {
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = (e) => resolve(e.target?.result as string)
-          reader.readAsDataURL(file)
-        })
-      })
-    )
-
     // Get products from state
     const productsRes = await fetch('/api/state')
     const productsData = await productsRes.json()
     const products = productsData.products || []
 
     try {
+      // Create FormData with actual PDF files - NO base64 conversion
+      const formData = new FormData()
+      files.forEach((file) => {
+        formData.append('pdf_files', file)
+      })
+      formData.append('products', JSON.stringify(products))
+      formData.append('productAliases', JSON.stringify(productsData.productAliases || []))
+      formData.append('uploadedBy', session?.userId || 'system')
+      formData.append('uploadedByName', session?.name || 'System')
+      formData.append('orgId', session?.orgId || '')
+      
       const response = await fetch('/api/process-bulk-invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfFiles,
-          products,
-          productAliases: productsData.productAliases || [],
-          uploadedBy: session?.userId || 'system',
-          uploadedByName: session?.name || 'System',
-          orgId: session?.orgId
-        })
+        body: formData // No Content-Type header - browser sets it with boundary
       })
 
       const data = await response.json()

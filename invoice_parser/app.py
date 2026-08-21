@@ -7,6 +7,7 @@ import os
 import tempfile
 import base64
 import re
+import json
 from rapidfuzz import process, fuzz
 from typing import List, Dict, Optional, Tuple
 import uuid
@@ -661,6 +662,11 @@ class InvoiceParser:
 # Global parser instance
 parser = InvoiceParser()
 
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({'status': 'ok'}), 200
+
 @app.route('/test-pdf-extraction', methods=['POST'])
 def test_pdf_extraction():
     """Isolated test endpoint for PDF extraction - NO parsing, NO regex, NO database"""
@@ -669,22 +675,21 @@ def test_pdf_extraction():
     print("=" * 80)
     
     try:
-        data = request.json
-        pdf_data = data.get('pdf_data')  # Base64 encoded PDF
+        # Accept PDF via request.files
+        if 'pdf' not in request.files:
+            print("ERROR: No PDF file in request.files")
+            return jsonify({'error': 'No PDF file provided'}), 400
         
-        if not pdf_data:
-            print("ERROR: No PDF data provided")
-            return jsonify({'error': 'No PDF data provided'}), 400
+        pdf_file = request.files['pdf']
+        if pdf_file.filename == '':
+            print("ERROR: Empty filename")
+            return jsonify({'error': 'No file selected'}), 400
         
-        # Remove data URL prefix if present
-        if pdf_data.startswith('data:'):
-            pdf_data = pdf_data.split(',')[1]
-        
-        # Decode base64 to bytes
-        pdf_bytes = base64.b64decode(pdf_data)
+        # Read as binary - NO UTF-8 decoding, NO string conversion
+        pdf_bytes = pdf_file.read()
         print(f"PDF byte length: {len(pdf_bytes)} bytes")
         
-        # Open with fitz using stream
+        # Open with fitz using stream - NO temp file
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         print(f"PDF opened successfully, pages: {len(doc)}")
         
@@ -732,91 +737,127 @@ def test_pdf_extraction():
 
 @app.route('/parse-invoices', methods=['POST'])
 def parse_invoices():
-    """Parse multiple invoices in parallel"""
-    print("=" * 50)
-    print("Received request to /parse-invoices")  # Debug log
-    print("=" * 50)
+    """Parse multiple invoices - accepts FormData with PDF files"""
+    print("=" * 80)
+    print("Received request to /parse-invoices")
+    print("=" * 80)
+    
     try:
-        data = request.json
-        print(f"Request data keys: {data.keys() if data else 'None'}")  # Debug log
-        print(f"Number of PDF files: {len(data.get('pdf_files', [])) if data else 0}")  # Debug log
-        pdf_files = data.get('pdf_files', [])  # List of base64 encoded PDFs
-        products = data.get('products', [])    # Product catalog
-        existing_invoices = data.get('existing_invoices', [])  # For duplicate detection
-        
-        print(f"Products received: {len(products)}")
-        print(f"Existing invoices: {len(existing_invoices)}")
-        
-        if not pdf_files:
-            print("ERROR: No PDF files provided")
-            return jsonify({'success': False, 'error': 'No PDF files provided'}), 400
-        
-        # Check for duplicates
-        duplicate_invoice_numbers = set()
-        for inv in existing_invoices:
-            duplicate_invoice_numbers.add(inv.get('invoice_number', '').upper())
-        
-        # Create temporary directory for PDF files
-        temp_dir = tempfile.mkdtemp()
-        
-        # Save PDFs to temporary files
-        pdf_paths = []
-        for i, pdf_data in enumerate(pdf_files):
-            # Remove data URL prefix if present
-            if pdf_data.startswith('data:'):
-                pdf_data = pdf_data.split(',')[1]
+        # Check if request is FormData (files) or JSON (base64)
+        if 'pdf_files' in request.files:
+            # FormData approach - preferred
+            print("Using FormData approach (files)")
+            pdf_files = request.files.getlist('pdf_files')
+            products_json = request.form.get('products', '[]')
+            existing_invoices_json = request.form.get('existing_invoices', '[]')
             
-            try:
-                pdf_bytes = base64.b64decode(pdf_data)
-                pdf_path = os.path.join(temp_dir, f'invoice_{i}.pdf')
-                with open(pdf_path, 'wb') as f:
-                    f.write(pdf_bytes)
-                pdf_paths.append(pdf_path)
-                print(f"Successfully saved PDF {i} to {pdf_path} ({len(pdf_bytes)} bytes)")
-            except Exception as e:
-                print(f"Failed to decode/save PDF {i}: {e}")
-                continue
-        
-        # Parse invoices sequentially to avoid interleaved logs and extraction issues
-        results = []
-        for i, pdf_path in enumerate(pdf_paths):
-            try:
-                print(f"\n--- Processing PDF {i}: {pdf_path} ---")
-                # Read PDF bytes from file
-                with open(pdf_path, 'rb') as f:
-                    pdf_bytes = f.read()
-                result = parser.parse_invoice(pdf_bytes, products)
-                
-                # Check for duplicate invoice number
-                if result.get('invoice_number'):
-                    inv_num = result['invoice_number'].upper()
-                    if inv_num in duplicate_invoice_numbers:
-                        result['duplicate'] = True
-                        result['error'] = f'Duplicate invoice number: {inv_num}'
-                        result['success'] = False
-                    else:
-                        duplicate_invoice_numbers.add(inv_num)
-                
-                results.append(result)
-                print(f"--- Completed PDF: {pdf_path} ---\n")
-            except Exception as e:
-                print(f"Error processing {pdf_path}: {e}")
-                results.append({
-                    'success': False,
-                    'error': str(e),
-                    'invoice_number': None
-                })
-        
-        # Clean up temporary files
-        for pdf_path in pdf_paths:
-            try:
-                os.remove(pdf_path)
-            except:
-                pass
-        try:
-            os.rmdir(temp_dir)
-        except:
-            pass
+            products = json.loads(products_json)
+            existing_invoices = json.loads(existing_invoices_json)
+            
+            print(f"Number of PDF files (FormData): {len(pdf_files)}")
+            print(f"Products received: {len(products)}")
+            
+            if not pdf_files:
+                print("ERROR: No PDF files provided")
+                return jsonify({'success': False, 'error': 'No PDF files provided'}), 400
+            
+            # Check for duplicates
+            duplicate_invoice_numbers = set()
+            for inv in existing_invoices:
+                duplicate_invoice_numbers.add(inv.get('invoice_number', '').upper())
+            
+            # Parse invoices sequentially
+            results = []
+            for i, pdf_file in enumerate(pdf_files):
+                try:
+                    print(f"\n--- Processing PDF {i}: {pdf_file.filename} ---")
+                    # Read as binary - NO UTF-8 decoding
+                    pdf_bytes = pdf_file.read()
+                    print(f"PDF byte length: {len(pdf_bytes)} bytes")
+                    
+                    result = parser.parse_invoice(pdf_bytes, products)
+                    
+                    # Check for duplicate invoice number
+                    if result.get('invoice_number'):
+                        inv_num = result['invoice_number'].upper()
+                        if inv_num in duplicate_invoice_numbers:
+                            result['duplicate'] = True
+                            result['error'] = f'Duplicate invoice number: {inv_num}'
+                            result['success'] = False
+                        else:
+                            duplicate_invoice_numbers.add(inv_num)
+                    
+                    results.append(result)
+                    print(f"Result success: {result['success']}")
+                    
+                except Exception as e:
+                    print(f"Error processing PDF {i}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    results.append({
+                        'success': False,
+                        'error': str(e)
+                    })
+            
+        else:
+            # JSON approach (base64) - fallback for compatibility
+            print("Using JSON approach (base64)")
+            data = request.json
+            print(f"Request data keys: {data.keys() if data else 'None'}")
+            print(f"Number of PDF files: {len(data.get('pdf_files', [])) if data else 0}")
+            
+            pdf_files = data.get('pdf_files', [])  # List of base64 encoded PDFs
+            products = data.get('products', [])    # Product catalog
+            existing_invoices = data.get('existing_invoices', [])  # For duplicate detection
+            
+            print(f"Products received: {len(products)}")
+            print(f"Existing invoices: {len(existing_invoices)}")
+            
+            if not pdf_files:
+                print("ERROR: No PDF files provided")
+                return jsonify({'success': False, 'error': 'No PDF files provided'}), 400
+            
+            # Check for duplicates
+            duplicate_invoice_numbers = set()
+            for inv in existing_invoices:
+                duplicate_invoice_numbers.add(inv.get('invoice_number', '').upper())
+            
+            # Parse invoices sequentially
+            results = []
+            for i, pdf_data in enumerate(pdf_files):
+                try:
+                    print(f"\n--- Processing PDF {i} (base64) ---")
+                    # Remove data URL prefix if present
+                    if pdf_data.startswith('data:'):
+                        pdf_data = pdf_data.split(',')[1]
+                    
+                    # Decode base64 to bytes
+                    pdf_bytes = base64.b64decode(pdf_data)
+                    print(f"PDF byte length: {len(pdf_bytes)} bytes")
+                    
+                    result = parser.parse_invoice(pdf_bytes, products)
+                    
+                    # Check for duplicate invoice number
+                    if result.get('invoice_number'):
+                        inv_num = result['invoice_number'].upper()
+                        if inv_num in duplicate_invoice_numbers:
+                            result['duplicate'] = True
+                            result['error'] = f'Duplicate invoice number: {inv_num}'
+                            result['success'] = False
+                        else:
+                            duplicate_invoice_numbers.add(inv_num)
+                    
+                    results.append(result)
+                    print(f"Result success: {result['success']}")
+                    
+                except Exception as e:
+                    print(f"Error processing PDF {i}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    results.append({
+                        'success': False,
+                        'error': str(e)
+                    })
         
         # Calculate summary
         success_count = sum(1 for r in results if r['success'])
@@ -835,6 +876,9 @@ def parse_invoices():
         })
     
     except Exception as e:
+        print(f"ERROR in parse-invoices: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])

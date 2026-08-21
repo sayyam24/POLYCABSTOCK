@@ -5,12 +5,13 @@ import type { Product, ProductAlias, AuthSession } from '@/lib/types'
 import { loadServerState, saveServerState } from '@/lib/db/server-state'
 
 interface ProcessBulkInvoicesRequest {
-  pdfFiles: string[] // array of base64 encoded PDFs
+  pdfFiles: string[] // array of base64 encoded PDFs (legacy)
   products: Array<{ id: string; code: string; name: string }>
   productAliases?: ProductAlias[]
   uploadedBy?: string
   uploadedByName?: string
   orgId?: string // Distributor's organization ID
+  pdfFilesRaw?: File[] // array of File objects (new FormData approach)
 }
 
 // Direct stock update function (inline to avoid HTTP request)
@@ -152,9 +153,68 @@ async function processSinglePDF(
 export async function POST(req: Request) {
   console.log('Received request to /api/process-bulk-invoices')  // Debug log
   try {
-    const body = (await req.json()) as ProcessBulkInvoicesRequest
-    console.log(`Request contains ${body.pdfFiles?.length || 0} PDF files`)  // Debug log
-    const { pdfFiles, products, productAliases = [], uploadedBy = 'system', uploadedByName = 'System', orgId } = body
+    // Check if request is FormData
+    const contentType = req.headers.get('content-type') || ''
+    const isFormData = contentType.includes('multipart/form-data')
+    
+    let pdfFiles: string[] = []
+    let products: Array<{ id: string; code: string; name: string }> = []
+    let productAliases: ProductAlias[] = []
+    let uploadedBy = 'system'
+    let uploadedByName = 'System'
+    let orgId: string | undefined
+    let rawFiles: File[] = []
+    
+    if (isFormData) {
+      // Parse FormData
+      const formData = await req.formData()
+      console.log('Request is FormData')
+      
+      // Extract PDF files
+      rawFiles = []
+      for (const [key, value] of formData.entries()) {
+        if (key === 'pdf_files' && value instanceof File) {
+          rawFiles.push(value)
+        }
+      }
+      console.log(`Found ${rawFiles.length} PDF files in FormData`)
+      
+      // Extract products
+      const productsJson = formData.get('products') as string
+      if (productsJson) {
+        products = JSON.parse(productsJson)
+      }
+      
+      // Extract other fields
+      const uploadedByValue = formData.get('uploadedBy') as string
+      const uploadedByNameValue = formData.get('uploadedByName') as string
+      const orgIdValue = formData.get('orgId') as string
+      
+      if (uploadedByValue) uploadedBy = uploadedByValue
+      if (uploadedByNameValue) uploadedByName = uploadedByNameValue
+      if (orgIdValue) orgId = orgIdValue
+      
+      // Convert File objects to base64 for batch record (legacy compatibility)
+      pdfFiles = await Promise.all(
+        rawFiles.map(async (file) => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = (e) => resolve(e.target?.result as string)
+            reader.readAsDataURL(file)
+          })
+        })
+      )
+    } else {
+      // Parse JSON (legacy)
+      const body = (await req.json()) as ProcessBulkInvoicesRequest
+      console.log(`Request is JSON with ${body.pdfFiles?.length || 0} PDF files`)
+      pdfFiles = body.pdfFiles
+      products = body.products
+      productAliases = body.productAliases || []
+      uploadedBy = body.uploadedBy || 'system'
+      uploadedByName = body.uploadedByName || 'System'
+      orgId = body.orgId
+    }
 
     if (!pdfFiles || !Array.isArray(pdfFiles)) {
       return NextResponse.json(
@@ -183,18 +243,22 @@ export async function POST(req: Request) {
 
     const batch = electroTrackService.createBulkUploadBatch(uploadedBy, uploadedByName, invoices)
 
-    // Call Python service with all PDFs at once
+    // Call Python service with all PDFs using FormData
     const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:5000'
     
-    console.log(`Calling Python service with ${pdfFiles.length} PDFs`)
+    console.log(`Calling Python service with ${rawFiles.length} PDFs using FormData`)
+    
+    // Create FormData with actual PDF files
+    const formData = new FormData()
+    rawFiles.forEach((file: File) => {
+      formData.append('pdf_files', file)
+    })
+    formData.append('products', JSON.stringify(fullProducts.map(p => ({ id: p.id, code: p.sku || '', name: p.name }))))
+    formData.append('existing_invoices', JSON.stringify([]))
+    
     const pythonResponse = await fetch(`${pythonServiceUrl}/parse-invoices`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pdf_files: pdfFiles,
-        products: fullProducts.map(p => ({ id: p.id, code: p.sku || '', name: p.name })),
-        existing_invoices: []
-      }),
+      body: formData, // No Content-Type header needed - browser sets it with boundary
       signal: AbortSignal.timeout(60000) // 60 second timeout for bulk processing
     })
 
