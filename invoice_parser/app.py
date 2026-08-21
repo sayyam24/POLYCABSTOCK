@@ -661,6 +661,75 @@ class InvoiceParser:
 # Global parser instance
 parser = InvoiceParser()
 
+@app.route('/test-pdf-extraction', methods=['POST'])
+def test_pdf_extraction():
+    """Isolated test endpoint for PDF extraction - NO parsing, NO regex, NO database"""
+    print("=" * 80)
+    print("TEST PDF EXTRACTION - ISOLATED DEBUG")
+    print("=" * 80)
+    
+    try:
+        data = request.json
+        pdf_data = data.get('pdf_data')  # Base64 encoded PDF
+        
+        if not pdf_data:
+            print("ERROR: No PDF data provided")
+            return jsonify({'error': 'No PDF data provided'}), 400
+        
+        # Remove data URL prefix if present
+        if pdf_data.startswith('data:'):
+            pdf_data = pdf_data.split(',')[1]
+        
+        # Decode base64 to bytes
+        pdf_bytes = base64.b64decode(pdf_data)
+        print(f"PDF byte length: {len(pdf_bytes)} bytes")
+        
+        # Open with fitz using stream
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        print(f"PDF opened successfully, pages: {len(doc)}")
+        
+        # Extract text page by page using get_text("text")
+        extracted_text = ""
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text("text")
+            extracted_text += text + "\n"
+            print(f"Page {page_num}: extracted {len(text)} characters")
+        
+        doc.close()
+        
+        # Log first 1000 characters
+        print(f"First 1000 characters of extracted text:")
+        print("=" * 80)
+        print(extracted_text[:1000])
+        print("=" * 80)
+        
+        # Check for PDF structure markers
+        pdf_markers = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
+                      '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size']
+        found_markers = [marker for marker in pdf_markers if marker in extracted_text]
+        
+        if found_markers:
+            print(f"WARNING: Found PDF structure markers: {found_markers}")
+            print("This indicates the PDF bytes are being processed incorrectly")
+        
+        # Return ONLY the extracted text
+        return jsonify({
+            'success': True,
+            'pdf_byte_length': len(pdf_bytes),
+            'page_count': len(doc) if 'doc' in locals() else 0,
+            'extracted_text_length': len(extracted_text),
+            'extracted_text_preview': extracted_text[:1000],
+            'extracted_text': extracted_text,
+            'found_pdf_markers': found_markers
+        })
+        
+    except Exception as e:
+        print(f"ERROR in test-pdf-extraction: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/parse-invoices', methods=['POST'])
 def parse_invoices():
     """Parse multiple invoices in parallel"""
