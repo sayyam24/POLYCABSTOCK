@@ -13,53 +13,15 @@ app = Flask(__name__)
 CORS(app)
 
 def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
-    """Extract text from PDF using PyMuPDF (fitz) with aggressive filtering"""
+    """Extract text from PDF using PyMuPDF (fitz) - fallback method"""
     text = ""
     try:
         doc = fitz.open(pdf_path)
         for page in doc:
-            # Try "text" mode with layout preservation
             extracted = page.get_text("text", sort=True)
             text += extracted + "\n"
         doc.close()
-        
-        # Aggressive filtering to remove PDF structure data
-        filtered_lines = []
-        for line in text.split('\n'):
-            line = line.strip()
-            
-            # Skip empty lines
-            if not line:
-                continue
-            
-            # Skip lines with PDF structure markers
-            if re.search(r'^\s*\d+\s+×\s+\/[A-Z]', line):
-                continue
-            
-            # Skip lines with PDF object references
-            if re.search(r'^\s*\d+\s+\d+\s+obj', line):
-                continue
-            
-            # Skip lines with binary garbage (lots of special characters)
-            if len(re.findall(r'[^\x20-\x7E]', line)) > len(line) * 0.3:
-                continue
-            
-            # Skip lines that are mostly numbers and symbols
-            if re.search(r'^[\d\s×\[\](),./\-]+$', line):
-                continue
-            
-            # Skip lines with PDF keywords
-            pdf_keywords = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
-                          '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size',
-                          '/Filter', '/Subtype', '/Type', '/Resources', '/ProcSet']
-            if any(keyword in line for keyword in pdf_keywords):
-                continue
-            
-            # Keep lines that look like actual text
-            if len(line) > 2 and re.search(r'[A-Za-z]{2,}', line):
-                filtered_lines.append(line)
-        
-        return "\n".join(filtered_lines)
+        return text
     except Exception as e:
         print(f"PyMuPDF extraction error: {e}")
         return ""
@@ -241,12 +203,12 @@ def process_pdf():
             f.write(pdf_bytes)
         
         try:
-            # Try PyMuPDF first
-            text = extract_text_from_pdf_pymupdf(temp_path)
+            # Try pdfplumber first (better text extraction)
+            text = extract_text_from_pdf_pdfplumber(temp_path)
             
-            # If text extraction failed or returned very little text, try pdfplumber
+            # If pdfplumber failed, try PyMuPDF as fallback
             if len(text.strip()) < 50:
-                text = extract_text_from_pdf_pdfplumber(temp_path)
+                text = extract_text_from_pdf_pymupdf(temp_path)
             
             # Extract invoice data
             invoice_data = extract_invoice_data(text)
@@ -301,12 +263,12 @@ def process_bulk_pdf():
                     f.write(pdf_bytes)
                 
                 try:
-                    # Try PyMuPDF first
-                    text = extract_text_from_pdf_pymupdf(temp_path)
+                    # Try pdfplumber first (better text extraction)
+                    text = extract_text_from_pdf_pdfplumber(temp_path)
                     
-                    # If text extraction failed, try pdfplumber
+                    # If pdfplumber failed, try PyMuPDF as fallback
                     if len(text.strip()) < 50:
-                        text = extract_text_from_pdf_pdfplumber(temp_path)
+                        text = extract_text_from_pdf_pymupdf(temp_path)
                     
                     # Extract invoice data
                     invoice_data = extract_invoice_data(text)
