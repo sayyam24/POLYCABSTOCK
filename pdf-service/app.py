@@ -13,63 +13,70 @@ app = Flask(__name__)
 CORS(app)
 
 def is_valid_extracted_text(text: str) -> bool:
-    """Validate that extracted text doesn't contain PDF structure data"""
+    """Strict validation to reject PDF structure data and binary content"""
     if not text or len(text.strip()) < 10:
         return False
     
-    # Check for PDF structure markers
+    # Check for PDF structure markers - IMMEDIATE REJECTION
     pdf_markers = ['/Length', '/MediaBox', '/FontBBox', '/Flags', '/Ascent', 
                   '/CapHeight', '/XHeight', '/BitsPerComponent', '/Width', '/Height', '/Size',
                   '/Filter', '/Subtype', '/Type', '/Resources', '/ProcSet', '/XObject',
-                  '/Count', '/Font']
+                  '/Count', '/Font', '/BaseFont', '/Encoding', '/ToUnicode']
     
-    # If text contains PDF markers, it's invalid
     for marker in pdf_markers:
         if marker in text:
+            print(f"VALIDATION FAILED: Found PDF marker '{marker}' in extracted text")
             return False
     
     # Check for patterns like "270 × /Length"
     if re.search(r'\d+\s+×\s+\/[A-Z]', text):
+        print("VALIDATION FAILED: Found '× /Marker' pattern in extracted text")
         return False
     
     # Check for binary garbage (lots of non-printable characters)
     non_printable = len(re.findall(r'[^\x20-\x7E\r\n\t]', text))
-    if non_printable > len(text) * 0.2:
+    if non_printable > len(text) * 0.1:  # More strict: only 10% allowed
+        print(f"VALIDATION FAILED: Too many non-printable characters ({non_printable}/{len(text)})")
         return False
     
     # Check if text contains actual words (at least some letters)
     if not re.search(r'[A-Za-z]{3,}', text):
+        print("VALIDATION FAILED: No actual words found in extracted text")
         return False
     
+    print("VALIDATION PASSED: Extracted text appears valid")
     return True
 
-def extract_text_from_pdf_pymupdf(pdf_path: str) -> str:
-    """Extract text from PDF using PyMuPDF (fitz) page-by-page"""
+def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
+    """Extract text from PDF bytes using fitz.open(stream=) with strict validation"""
     text = ""
     try:
-        doc = fitz.open(pdf_path)
+        # Use fitz.open with stream as specified
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
         for page_num in range(len(doc)):
             page = doc[page_num]
             # Use page.get_text("text") as specified
             extracted = page.get_text("text")
             text += extracted + "\n"
+        
         doc.close()
+        
+        # Debug: Print first 500 characters
+        print(f"DEBUG: Extracted text (first 500 chars): {text[:500]}")
+        
+        # Strict validation
+        if not is_valid_extracted_text(text):
+            print("EXTRACTION FAILED: Extracted text failed validation")
+            return ""
+        
+        print(f"EXTRACTION SUCCESS: Extracted {len(text)} characters")
         return text
+        
     except Exception as e:
         print(f"PyMuPDF extraction error: {e}")
         return ""
 
-def extract_text_from_pdf_pdfplumber(pdf_path: str) -> str:
-    """Extract text from PDF using pdfplumber"""
-    text = ""
-    try:
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-        return text
-    except Exception as e:
-        print(f"pdfplumber extraction error: {e}")
-        return ""
 
 
 def extract_invoice_data(text: str) -> Dict:
@@ -230,49 +237,38 @@ def process_pdf():
         # Decode base64 PDF
         pdf_bytes = base64.b64decode(pdf_data)
         
-        # Save to temporary file
-        temp_path = f"temp_{os.urandom(8).hex()}.pdf"
-        with open(temp_path, 'wb') as f:
-            f.write(pdf_bytes)
+        print(f"DEBUG: Processing PDF, size: {len(pdf_bytes)} bytes")
         
-        try:
-            # Try pdfplumber first (better text extraction)
-            text = extract_text_from_pdf_pdfplumber(temp_path)
-            
-            # If pdfplumber failed or text is invalid, try PyMuPDF as fallback
-            if not is_valid_extracted_text(text):
-                text = extract_text_from_pdf_pymupdf(temp_path)
-            
-            # If still invalid, return error
-            if not is_valid_extracted_text(text):
-                return jsonify({
-                    'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.',
-                    'extracted_text_preview': text[:200] if text else 'No text extracted'
-                }), 400
-            
-            # Extract invoice data
-            invoice_data = extract_invoice_data(text)
-            
-            # Match products
-            matched_items, unmatched_items = match_products(
-                invoice_data['items'],
-                product_database
-            )
-            
-            response = {
-                'success': True,
-                'invoice_data': invoice_data,
-                'matched_items': matched_items,
-                'unmatched_items': unmatched_items,
-                'extraction_method': 'ocr' if len(text.strip()) < 50 else 'text'
-            }
-            
-            return jsonify(response)
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+        # Extract text using the new stream-based method
+        text = extract_text_from_pdf_bytes(pdf_bytes)
+        
+        # If extraction failed, return error
+        if not text:
+            return jsonify({
+                'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.',
+                'details': 'Text extraction failed validation or returned empty'
+            }), 400
+        
+        # Extract invoice data
+        invoice_data = extract_invoice_data(text)
+        
+        print(f"DEBUG: Extracted invoice data: {invoice_data}")
+        
+        # Match products
+        matched_items, unmatched_items = match_products(
+            invoice_data['items'],
+            product_database
+        )
+        
+        response = {
+            'success': True,
+            'invoice_data': invoice_data,
+            'matched_items': matched_items,
+            'unmatched_items': unmatched_items,
+            'extraction_method': 'text'
+        }
+        
+        return jsonify(response)
                 
     except Exception as e:
         print(f"PDF processing error: {e}")
@@ -297,54 +293,41 @@ def process_bulk_pdf():
                 # Decode base64 PDF
                 pdf_bytes = base64.b64decode(pdf_data)
                 
-                # Save to temporary file
-                temp_path = f"temp_bulk_{idx}_{os.urandom(8).hex()}.pdf"
-                with open(temp_path, 'wb') as f:
-                    f.write(pdf_bytes)
+                print(f"DEBUG: Processing bulk PDF {idx}, size: {len(pdf_bytes)} bytes")
                 
-                try:
-                    # Try pdfplumber first (better text extraction)
-                    text = extract_text_from_pdf_pdfplumber(temp_path)
-                    
-                    # If pdfplumber failed or text is invalid, try PyMuPDF as fallback
-                    if not is_valid_extracted_text(text):
-                        text = extract_text_from_pdf_pymupdf(temp_path)
-                    
-                    # If still invalid, mark as failed
-                    if not is_valid_extracted_text(text):
-                        errors.append({
-                            'index': idx,
-                            'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.'
-                        })
-                        results.append({
-                            'index': idx,
-                            'success': False,
-                            'error': 'Failed to extract valid text from PDF'
-                        })
-                        continue
-                    
-                    # Extract invoice data
-                    invoice_data = extract_invoice_data(text)
-                    
-                    # Match products
-                    matched_items, unmatched_items = match_products(
-                        invoice_data['items'],
-                        product_database
-                    )
-                    
+                # Extract text using the new stream-based method
+                text = extract_text_from_pdf_bytes(pdf_bytes)
+                
+                # If extraction failed, mark as failed
+                if not text:
+                    errors.append({
+                        'index': idx,
+                        'error': 'Failed to extract valid text from PDF. The PDF may be scanned or in an unsupported format.'
+                    })
                     results.append({
                         'index': idx,
-                        'success': True,
-                        'invoice_data': invoice_data,
-                        'matched_items': matched_items,
-                        'unmatched_items': unmatched_items,
-                        'extraction_method': 'ocr' if len(text.strip()) < 50 else 'text'
+                        'success': False,
+                        'error': 'Failed to extract valid text from PDF'
                     })
-                    
-                finally:
-                    # Clean up temporary file
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
+                    continue
+                
+                # Extract invoice data
+                invoice_data = extract_invoice_data(text)
+                
+                # Match products
+                matched_items, unmatched_items = match_products(
+                    invoice_data['items'],
+                    product_database
+                )
+                
+                results.append({
+                    'index': idx,
+                    'success': True,
+                    'invoice_data': invoice_data,
+                    'matched_items': matched_items,
+                    'unmatched_items': unmatched_items,
+                    'extraction_method': 'text'
+                })
                         
             except Exception as e:
                 errors.append({
