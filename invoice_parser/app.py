@@ -368,10 +368,16 @@ class InvoiceParser:
             result['invoice_date'] = self.extract_invoice_date(text)
             result['retailer_name'] = self.extract_retailer_name(text)
             
-            # Use text-based extraction (more reliable for this invoice format)
-            items = self.extract_items_from_text(text)
+            # Use coordinate-based extraction (more accurate for column identification)
+            items = self.extract_items_from_pdf_coordinates(pdf_bytes)
+            if not items:
+                # Fallback to text-based extraction if coordinate extraction fails
+                print("Coordinate extraction failed, falling back to text-based extraction")
+                items = self.extract_items_from_text(text)
+                result['extraction_method'] = f'{extraction_method}_text_based'
+            else:
+                result['extraction_method'] = f'{extraction_method}_coordinate_based'
             result['items'] = items
-            result['extraction_method'] = f'{extraction_method}_text_based'
             
             # Match products
             matched_items = self.match_products(result['items'], products)
@@ -385,6 +391,165 @@ class InvoiceParser:
         
         return result
     
+    def extract_items_from_pdf_coordinates(self, pdf_bytes: bytes) -> List[Dict]:
+        """Extract items using PyMuPDF coordinate-based column extraction"""
+        items = []
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                words = page.get_text("words")
+                
+                print(f"Page {page_num}: Found {len(words)} words")
+                
+                # Group words by rows (similar y-coordinates)
+                rows = {}
+                for word in words:
+                    x0, y0, x1, y1, text, block_no, line_no, word_no = word
+                    # Round y-coordinate to group words on same line
+                    y_key = round(y0, 1)
+                    if y_key not in rows:
+                        rows[y_key] = []
+                    rows[y_key].append({
+                        'x0': x0,
+                        'y0': y0,
+                        'x1': x1,
+                        'y1': y1,
+                        'text': text
+                    })
+                
+                # Find header row to identify column positions
+                header_row = None
+                header_y = None
+                for y_key in sorted(rows.keys()):
+                    row_words = rows[y_key]
+                    row_text = ' '.join([w['text'] for w in row_words])
+                    if 'Description of Goods' in row_text or 'Sl No.' in row_text:
+                        header_row = row_words
+                        header_y = y_key
+                        print(f"Found header row at y={y_key}: {row_text}")
+                        break
+                
+                if not header_row:
+                    print("No header row found, skipping coordinate extraction")
+                    continue
+                
+                # Identify column x-positions from header
+                col_positions = {}
+                for word in header_row:
+                    text = word['text'].lower()
+                    x_pos = word['x0']
+                    if 'sl' in text or 'no.' in text:
+                        col_positions['serial'] = x_pos
+                    elif 'description' in text:
+                        col_positions['description'] = x_pos
+                    elif 'hsn' in text or 'sac' in text:
+                        col_positions['hsn'] = x_pos
+                    elif 'quantity' in text or 'qty' in text:
+                        col_positions['quantity'] = x_pos
+                    elif 'sale' in text or 'price' in text:
+                        col_positions['sale_price'] = x_pos
+                    elif 'rate' in text:
+                        col_positions['rate'] = x_pos
+                    elif 'amount' in text:
+                        col_positions['amount'] = x_pos
+                
+                print(f"Column positions: {col_positions}")
+                
+                # Process data rows (after header)
+                current_item = None
+                for y_key in sorted(rows.keys()):
+                    if y_key <= header_y:
+                        continue
+                    
+                    row_words = rows[y_key]
+                    
+                    # Check if this row starts with a serial number
+                    serial_word = None
+                    for word in row_words:
+                        if word['x0'] < col_positions.get('description', 100):
+                            if word['text'].strip().replace('.', '').isdigit():
+                                serial_word = word
+                                break
+                    
+                    if serial_word:
+                        # New row - save previous item
+                        if current_item and current_item.get('product_name') and current_item.get('quantity'):
+                            items.append(current_item)
+                            print(f"DEBUG: Row - Serial: {current_item.get('serial')}, Product: {current_item.get('product_name')}, HSN: {current_item.get('hsn')}, Qty: {current_item.get('quantity')}, Unit: {current_item.get('unit')}, Free: {current_item.get('free', False)}")
+                        
+                        # Start new item
+                        current_item = {
+                            'serial': serial_word['text'].strip(),
+                            'product_name': '',
+                            'hsn': None,
+                            'quantity': None,
+                            'unit': None,
+                            'free': False
+                        }
+                    
+                    # Extract data from columns
+                    if current_item:
+                        for word in row_words:
+                            x_pos = word['x0']
+                            text = word['text'].strip()
+                            
+                            # Description column
+                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 50:
+                                if text and text not in ['Description', 'Goods']:
+                                    if current_item['product_name']:
+                                        current_item['product_name'] += ' ' + text
+                                    else:
+                                        current_item['product_name'] = text
+                            
+                            # HSN column
+                            elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 50:
+                                if text and text.replace('.', '').isdigit() and len(text) >= 6:
+                                    current_item['hsn'] = text
+                            
+                            # Quantity column
+                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 50:
+                                if text:
+                                    # Check if it's a number (quantity)
+                                    qty_match = re.search(r'(\d+\.?\d*)', text)
+                                    if qty_match:
+                                        try:
+                                            qty_val = float(qty_match.group(1))
+                                            if 0 < qty_val < 10000:
+                                                current_item['quantity'] = int(qty_val)
+                                        except ValueError:
+                                            pass
+                                    # Check if it's a unit (NOS, PCS, etc.)
+                                    if text.upper() in ['NOS', 'PCS', 'BOX', 'SET', 'MTR', 'KG']:
+                                        current_item['unit'] = text.upper()
+                            
+                            # Check for FREE in description
+                            if 'FREE' in text.upper():
+                                current_item['free'] = True
+                
+                # Save last item
+                if current_item and current_item.get('product_name') and current_item.get('quantity'):
+                    items.append(current_item)
+                    print(f"DEBUG: Row - Serial: {current_item.get('serial')}, Product: {current_item.get('product_name')}, HSN: {current_item.get('hsn')}, Qty: {current_item.get('quantity')}, Unit: {current_item.get('unit')}, Free: {current_item.get('free', False)}")
+            
+            doc.close()
+            
+            # Clean up product names
+            for item in items:
+                if item.get('product_name'):
+                    # Remove FREE from product name (keep as metadata only)
+                    item['product_name'] = re.sub(r'\bFREE\b', '', item['product_name'], flags=re.IGNORECASE).strip()
+                    # Remove extra whitespace
+                    item['product_name'] = re.sub(r'\s+', ' ', item['product_name']).strip()
+            
+            print(f"Total items extracted from coordinates: {len(items)}")
+            return items
+            
+        except Exception as e:
+            print(f"Coordinate extraction error: {e}")
+            return []
+
     def extract_items_from_text(self, text: str) -> List[Dict]:
         """Extract items from text - optimized for this invoice format with multi-line support"""
         items = []
