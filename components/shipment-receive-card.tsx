@@ -12,14 +12,17 @@ interface ShipmentReceiveCardProps {
   shipment: Shipment
   onReceive: (id: string, parsedItems?: Array<{ productName: string; quantity: number }>) => void
   onReject?: (id: string) => void
+  onUpdateStock?: (id: string, parsedItems: Array<{ productName: string; quantity: number }>) => void
 }
 
 export function ShipmentReceiveCard({
   shipment,
   onReceive,
   onReject,
+  onUpdateStock,
 }: ShipmentReceiveCardProps) {
   const canAct = shipment.status === 'sent' || shipment.status === 'in_transit'
+  const canParseAfterAccept = shipment.status === 'received'
   const [isParsing, setIsParsing] = useState(false)
   const [parsedItems, setParsedItems] = useState<Array<{ productName: string; quantity: number }>>([])
   const [showParsed, setShowParsed] = useState(false)
@@ -84,6 +87,15 @@ export function ShipmentReceiveCard({
     }
   }
 
+  const handleUpdateStockWithParsed = () => {
+    if (parsedItems.length > 0 && onUpdateStock) {
+      onUpdateStock(shipment.id, parsedItems)
+      toast.success('Stock updated successfully')
+      setShowParsed(false)
+      setParsedItems([])
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -110,7 +122,7 @@ export function ShipmentReceiveCard({
                 </li>
               ))}
             </ul>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -118,12 +130,21 @@ export function ShipmentReceiveCard({
               >
                 Cancel
               </Button>
-              <Button
-                size="sm"
-                onClick={handleReceiveWithParsed}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Confirm & Update Stock
-              </Button>
+              {canAct ? (
+                <Button
+                  size="sm"
+                  onClick={handleReceiveWithParsed}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Confirm & Receive
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={handleUpdateStockWithParsed}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Update Stock
+                </Button>
+              )}
             </div>
           </div>
         ) : (
@@ -240,6 +261,45 @@ export function ShipmentReceiveCard({
                     </Button>
                   )}
                 </div>
+              </div>
+            )}
+
+            {canParseAfterAccept && onUpdateStock && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleParseInvoice}
+                    className="hidden"
+                    id={`parse-after-${shipment.id}`}
+                  />
+                  <label htmlFor={`parse-after-${shipment.id}`}>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="h-12 w-full cursor-pointer"
+                      disabled={isParsing}
+                      asChild
+                    >
+                      <span>
+                        {isParsing ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Parsing...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-5 w-5" /> Parse Invoice to Update Stock
+                          </>
+                        )}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+                
+                <p className="text-xs text-muted-foreground text-center">
+                  Upload invoice PDF to parse and update stock quantities
+                </p>
               </div>
             )}
           </>
