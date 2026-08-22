@@ -615,26 +615,26 @@ class InvoiceParser:
                             print(f"  Found quantity: {qty_val}")
                     except ValueError:
                         pass
+                
+                # Always try table format: HSN QUANTITY NOS PRICE NOS TOTAL
+                # Match the 2nd number after HSN (8 digits)
+                parts = line.split()
+                if len(parts) >= 5:
+                    # Look for pattern: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
+                    for i, part in enumerate(parts):
+                        if re.match(r'^\d{8}$', part):
+                            # Found HSN, next number should be quantity
+                            if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
+                                try:
+                                    qty_val = float(parts[i + 1])
+                                    if 1 <= qty_val <= 10000:
+                                        current_item['quantity'] = int(qty_val)
+                                        print(f"  Found quantity from table format (after HSN): {qty_val}")
+                                        break
+                                except ValueError:
+                                    pass
                 else:
-                    # Try table format: HSN QUANTITY NOS PRICE NOS TOTAL
-                    # Match the 2nd number after HSN (8 digits)
-                    parts = line.split()
-                    if len(parts) >= 5:
-                        # Look for pattern: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
-                        for i, part in enumerate(parts):
-                            if re.match(r'^\d{8}$', part):
-                                # Found HSN, next number should be quantity
-                                if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
-                                    try:
-                                        qty_val = float(parts[i + 1])
-                                        if 1 <= qty_val <= 10000:
-                                            current_item['quantity'] = int(qty_val)
-                                            print(f"  Found quantity from table format (after HSN): {qty_val}")
-                                            break
-                                    except ValueError:
-                                        pass
-                    else:
-                        print(f"  No quantity match in this line")
+                    print(f"  No quantity match in this line")
                 
                 # Add to product name if it doesn't look like HSN/quantity data
                 # Skip lines that are just HSN codes (8 digits) or large numbers
