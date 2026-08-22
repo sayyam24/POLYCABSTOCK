@@ -486,34 +486,41 @@ class InvoiceParser:
 
                             # Check if this line contains embedded HSN/quantity/price data
                             # Pattern: PRODUCT_NAME HSN_CODE QUANTITY NOS PRICE NOS TOTAL
-                            # Extract quantity from embedded data
-                            qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos)\b', product_name)
-                            if qty_match:
-                                try:
-                                    qty_val = float(qty_match.group(1))
-                                    if 1 <= qty_val <= 500:
-                                        # Remove the embedded data from product name
-                                        # Keep only the product name part before HSN code
-                                        hsn_match = re.search(r'\b\d{8}\b', product_name)
-                                        if hsn_match:
-                                            product_name = product_name[:hsn_match.start()].strip()
-                                        print(f"  Found embedded quantity: {qty_val}")
-                                        current_item = {
-                                            'serial': serial,
-                                            'product_name': product_name,
-                                            'quantity': int(qty_val),
-                                            'unit': 'pcs'
-                                        }
-                                        print(f"Started new item with embedded data: {serial} - {product_name} - Qty: {qty_val}")
-                                    else:
+                            # Extract quantity from embedded data (only from table format, not from serial prefix)
+                            hsn_match = re.search(r'\b\d{8}\b', product_name)
+                            if hsn_match:
+                                # Found HSN code, extract quantity from table format
+                                hsn_pos = hsn_match.start()
+                                parts_after_hsn = product_name[hsn_pos:].split()
+                                if len(parts_after_hsn) >= 2:
+                                    # Next number after HSN is quantity
+                                    for i, part in enumerate(parts_after_hsn):
+                                        if i > 0 and re.match(r'^\d+\.?\d*$', part):
+                                            try:
+                                                qty_val = float(part)
+                                                if 1 <= qty_val <= 10000:
+                                                    # Remove the embedded data from product name
+                                                    product_name = product_name[:hsn_pos].strip()
+                                                    print(f"  Found quantity from table format: {qty_val}")
+                                                    current_item = {
+                                                        'serial': serial,
+                                                        'product_name': product_name,
+                                                        'quantity': int(qty_val),
+                                                        'unit': 'pcs'
+                                                    }
+                                                    print(f"Started new item with table data: {serial} - {product_name} - Qty: {qty_val}")
+                                                    break
+                                            except ValueError:
+                                                pass
+                                    if not current_item or current_item.get('quantity') is None:
                                         current_item = {
                                             'serial': serial,
                                             'product_name': product_name,
                                             'quantity': None,
                                             'unit': 'pcs'
                                         }
-                                        print(f"Started new item: {serial} - {product_name}")
-                                except ValueError:
+                                        print(f"Started new item (no quantity extracted): {serial} - {product_name}")
+                                else:
                                     current_item = {
                                         'serial': serial,
                                         'product_name': product_name,
@@ -522,7 +529,7 @@ class InvoiceParser:
                                     }
                                     print(f"Started new item: {serial} - {product_name}")
                             else:
-                                # No embedded quantity, start normal item
+                                # No HSN code, start normal item (quantity will come from continuation line)
                                 current_item = {
                                     'serial': serial,
                                     'product_name': product_name,
