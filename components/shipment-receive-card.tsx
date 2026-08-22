@@ -220,16 +220,26 @@ export function ShipmentReceiveCard({
                   Upload the invoice PDF to parse products before receiving
                 </p>
                 
-                {onReject && (
+                <div className="flex gap-2">
                   <Button
                     size="lg"
-                    variant="outline"
-                    className="h-12 w-full"
-                    onClick={() => onReject(shipment.id)}
+                    variant="default"
+                    className="h-12 flex-1"
+                    onClick={() => onReceive(shipment.id)}
                   >
-                    <XCircle className="mr-2 h-5 w-5" /> Reject Shipment
+                    <CheckCircle2 className="mr-2 h-5 w-5" /> Accept Shipment
                   </Button>
-                )}
+                  {onReject && (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="h-12 flex-1"
+                      onClick={() => onReject(shipment.id)}
+                    >
+                      <XCircle className="mr-2 h-5 w-5" /> Reject
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </>
