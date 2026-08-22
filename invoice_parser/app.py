@@ -604,23 +604,23 @@ class InvoiceParser:
                     except ValueError:
                         pass
                 else:
-                    # Try table format: HSN RATE NOS QUANTITY NOS TOTAL
-                    # Match the 4th number in the line (after HSN, RATE, NOS)
+                    # Try table format: HSN QUANTITY NOS PRICE NOS TOTAL
+                    # Match the 2nd number after HSN (8 digits)
                     parts = line.split()
                     if len(parts) >= 5:
-                        # Look for pattern: HSN(8digits) RATE NOS QUANTITY NOS TOTAL
+                        # Look for pattern: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
                         for i, part in enumerate(parts):
-                            if i >= 3 and re.match(r'^\d+\.?\d*$', part):
-                                try:
-                                    qty_val = float(part)
-                                    if 1 <= qty_val <= 10000:
-                                        # Check if this is followed by NOS
-                                        if i + 1 < len(parts) and 'NOS' in parts[i + 1].upper():
+                            if re.match(r'^\d{8}$', part):
+                                # Found HSN, next number should be quantity
+                                if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
+                                    try:
+                                        qty_val = float(parts[i + 1])
+                                        if 1 <= qty_val <= 10000:
                                             current_item['quantity'] = int(qty_val)
-                                            print(f"  Found quantity from table format: {qty_val}")
+                                            print(f"  Found quantity from table format (after HSN): {qty_val}")
                                             break
-                                except ValueError:
-                                    pass
+                                    except ValueError:
+                                        pass
                     else:
                         print(f"  No quantity match in this line")
                 
