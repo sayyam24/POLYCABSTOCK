@@ -3,7 +3,7 @@ import type { UserRole } from '@/lib/types'
 /** Who can create which roles (distributor → sub_distributor → retailer) */
 export const ROLE_CREATION_PERMISSIONS: Record<UserRole, UserRole[]> = {
   admin: ['admin', 'distributor', 'sub_distributor', 'retailer', 'salesman'],
-  distributor: ['salesman'],
+  distributor: ['sub_distributor', 'salesman'],
   sub_distributor: [],
   retailer: [],
   salesman: [],
