@@ -255,6 +255,30 @@ class InvoiceParser:
             
             # Only add item if we have both product name and quantity
             if product_name and quantity:
+                # Strip trailing prices from product name (handle comma-separated numbers)
+                product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
+                product_name = re.sub(r'\s+[\d,]+\s*$', '', product_name).strip()
+                product_name = re.sub(r'\s+\d+\.\d+\s*$', '', product_name).strip()
+                product_name = re.sub(r'\s+\d+\s*$', '', product_name).strip()
+                
+                # Remove common invalid phrases from product name
+                product_name = re.sub(r'\s*FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+                
+                # Skip if product name is too short after cleaning
+                if len(product_name) < 3:
+                    print(f"  Skipped (product name too short): {product_name}")
+                    continue
+                
+                # Skip if product name is entirely invalid keywords
+                invalid_keywords = ['FREE', 'E. & O.E', 'E&O.E', 'ROUND OFF', 'TOTAL', 'SUBTOTAL', 'NOS', 'PCS']
+                if product_name.upper() in invalid_keywords:
+                    print(f"  Skipped invalid line: {product_name}")
+                    continue
+                
                 items.append({
                     'product_name': product_name,
                     'product_code': hsn_code,
@@ -602,7 +626,31 @@ class InvoiceParser:
             product_name = re.sub(r'\(cid:\d+\)', '', item['product_name']).strip()
             product_name = re.sub(r'\b\d{8}\b', '', product_name).strip()
             
-            if len(product_name) > 5 and item.get('quantity'):
+            # Strip trailing prices (handle comma-separated numbers)
+            product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+[\d,]+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+\d+\.\d+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+\d+\s*$', '', product_name).strip()
+            
+            # Remove common invalid phrases from product name
+            product_name = re.sub(r'\s*FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+            
+            # Skip if product name is too short after cleaning
+            if len(product_name) < 3:
+                print(f"  Skipped (product name too short): {product_name}")
+                continue
+            
+            # Skip if product name is entirely invalid keywords
+            invalid_keywords = ['FREE', 'E. & O.E', 'E&O.E', 'ROUND OFF', 'TOTAL', 'SUBTOTAL', 'NOS', 'PCS']
+            if product_name.upper() in invalid_keywords:
+                print(f"  Skipped invalid line: {product_name}")
+                continue
+            
+            if len(product_name) > 3 and item.get('quantity'):
                 final_items.append({
                     'product_name': product_name,
                     'product_code': None,
@@ -661,11 +709,6 @@ class InvoiceParser:
 
 # Global parser instance
 parser = InvoiceParser()
-
-@app.route('/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok'}), 200
 
 @app.route('/test-pdf-extraction', methods=['POST'])
 def test_pdf_extraction():
