@@ -269,6 +269,8 @@ class InvoiceParser:
                 
                 # Remove quantity prefix from product name (e.g., "22 × NOS" or "22 X")
                 product_name = re.sub(r'^\d+\s*[×xX]\s*(?:NOS|PCS|pcs|nos)?\s*', '', product_name).strip()
+                # Remove standalone NOS/PCS prefix
+                product_name = re.sub(r'^(?:NOS|PCS|pcs|nos)\s+', '', product_name, flags=re.IGNORECASE).strip()
                 
                 # Strip trailing prices from product name (handle comma-separated numbers)
                 product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
@@ -676,6 +678,8 @@ class InvoiceParser:
             
             # Remove quantity prefix from product name (e.g., "22 × NOS" or "22 X")
             product_name = re.sub(r'^\d+\s*[×xX]\s*(?:NOS|PCS|pcs|nos)?\s*', '', product_name).strip()
+            # Remove standalone NOS/PCS prefix
+            product_name = re.sub(r'^(?:NOS|PCS|pcs|nos)\s+', '', product_name, flags=re.IGNORECASE).strip()
             
             # Strip trailing prices from product name (handle comma-separated numbers)
             product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
