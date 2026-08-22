@@ -15,6 +15,14 @@ export async function GET(request: Request) {
 
   try {
     const state = await loadServerState()
+    
+    console.log('Admin stats - State loaded:', {
+      usersCount: state.users.length,
+      orgsCount: state.organizations.length,
+      productsCount: state.products.length,
+      stockCount: state.stock.length,
+      shipmentsCount: state.shipments.length
+    })
 
     const stats = {
       totalUsers: state.users.length,
@@ -29,11 +37,12 @@ export async function GET(request: Request) {
         .reduce((sum, p) => sum + p.amount, 0),
     }
 
+    console.log('Admin stats - Returning:', stats)
     return NextResponse.json(stats)
   } catch (error) {
     console.error('Error fetching admin stats:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      { error: 'Failed to fetch stats', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
