@@ -51,6 +51,30 @@ export function ReceiveShipmentView() {
     }
   }
 
+  const handleUpdateStock = async (id: string, parsedItems: Array<{ productName: string; quantity: number }>) => {
+    try {
+      const res = await fetch('/api/receive-shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shipmentId: id,
+          receiverOrgId: session.orgId,
+          parsedItems
+        })
+      })
+
+      if (res.ok) {
+        refresh()
+        toast.success('Stock updated successfully')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update stock')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update stock')
+    }
+  }
+
   if (incoming.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-12">
@@ -67,6 +91,7 @@ export function ReceiveShipmentView() {
           shipment={s}
           onReceive={handleReceive}
           onReject={handleReject}
+          onUpdateStock={handleUpdateStock}
         />
       ))}
     </div>
