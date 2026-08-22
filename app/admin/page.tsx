@@ -44,7 +44,19 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      const res = await fetch('/api/admin/stats')
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (session) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
+      const res = await fetch('/api/admin/stats', { headers })
       console.log('Admin stats response status:', res.status)
       if (res.ok) {
         const data = await res.json()
@@ -61,7 +73,19 @@ export default function AdminDashboard() {
 
   const loadRecentActivity = async () => {
     try {
-      const res = await fetch('/api/admin/recent-activity')
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (session) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
+      const res = await fetch('/api/admin/recent-activity', { headers })
       console.log('Recent activity response status:', res.status)
       if (res.ok) {
         const data = await res.json()
