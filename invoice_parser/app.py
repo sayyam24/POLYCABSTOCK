@@ -593,6 +593,7 @@ class InvoiceParser:
                 # Check if it contains quantity with NOS indicator
                 # Look for pattern like "20.00 NOS" but avoid HSN codes (8 digits)
                 # Also handle quantities at start like "120 × NOS"
+                # Handle table format: HSN RATE NOS QUANTITY NOS TOTAL
                 qty_match = re.search(r'\b([1-9]\d{0,3}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                 if qty_match:
                     try:
@@ -603,23 +604,43 @@ class InvoiceParser:
                     except ValueError:
                         pass
                 else:
-                    print(f"  No quantity match in this line")
+                    # Try table format: HSN RATE NOS QUANTITY NOS TOTAL
+                    # Match the 4th number in the line (after HSN, RATE, NOS)
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        # Look for pattern: HSN(8digits) RATE NOS QUANTITY NOS TOTAL
+                        for i, part in enumerate(parts):
+                            if i >= 3 and re.match(r'^\d+\.?\d*$', part):
+                                try:
+                                    qty_val = float(part)
+                                    if 1 <= qty_val <= 10000:
+                                        # Check if this is followed by NOS
+                                        if i + 1 < len(parts) and 'NOS' in parts[i + 1].upper():
+                                            current_item['quantity'] = int(qty_val)
+                                            print(f"  Found quantity from table format: {qty_val}")
+                                            break
+                                except ValueError:
+                                    pass
+                    else:
+                        print(f"  No quantity match in this line")
                 
                 # Add to product name if it doesn't look like HSN/quantity data
                 # Skip lines that are just HSN codes (8 digits) or large numbers
                 # Allow small numbers that might be part of product specs (like wattage)
                 # Also skip lines that look like they contain quantity/rate data
                 # Skip lines with ROUND OFF or other non-product terms
+                # Skip lines that look like table data (HSN RATE NOS QUANTITY NOS TOTAL)
                 is_hsn = re.match(r'^\d{8}$', line)
                 is_large_number = re.match(r'^\d{4,}$', line)  # Numbers with 4+ digits
                 is_quantity_line = qty_match
+                is_table_data = re.search(r'\d{8}\s+\d+\.?\d*\s+NOS', line)  # HSN RATE NOS pattern
                 
-                if not is_hsn and not is_large_number and not is_quantity_line and 'NOS' not in line and 'ROUND OFF' not in line:
+                if not is_hsn and not is_large_number and not is_quantity_line and not is_table_data and 'NOS' not in line and 'ROUND OFF' not in line:
                     current_item['product_name'] += ' ' + line
                     current_item['product_name'] = re.sub(r'\s+', ' ', current_item['product_name']).strip()
                     print(f"  Added to product name: {current_item['product_name']}")
                 else:
-                    print(f"  Skipped adding to product name (hsn={is_hsn is not None}, large_num={is_large_number is not None}, qty={is_quantity_line is not None}, ROUND_OFF={'ROUND OFF' in line})")
+                    print(f"  Skipped adding to product name (hsn={is_hsn is not None}, large_num={is_large_number is not None}, qty={is_quantity_line is not None}, table_data={is_table_data is not None}, ROUND_OFF={'ROUND OFF' in line})")
         
         # Don't forget the last item
         if current_item and current_item.get('product_name') and current_item.get('quantity'):
