@@ -508,10 +508,16 @@ class InvoiceParser:
                                 if not any(kw in product_upper for kw in invalid_keywords):
                                     items.append(current_item)
                                     print(f"ROW {row_count}:")
-                                    print(f"  Description column: {current_item.get('product_name')}")
-                                    print(f"  HSN: {current_item.get('hsn')}")
-                                    print(f"  Quantity column: {current_item.get('quantity')} {current_item.get('unit')}")
-                                    print(f"  FINAL: Product = {current_item.get('product_name')}, Qty = {current_item.get('quantity')}, Unit = {current_item.get('unit')}, Free = {current_item.get('free', False)}")
+                                    print(f"  SL NO: {current_item.get('serial')}")
+                                    print(f"  DESCRIPTION WORDS: {current_item.get('debug_description', [])}")
+                                    print(f"  HSN WORDS: {current_item.get('debug_hsn', [])}")
+                                    print(f"  QUANTITY WORDS: {current_item.get('debug_quantity', [])}")
+                                    print(f"  RATE WORDS: {current_item.get('debug_rate', [])}")
+                                    print(f"  AMOUNT WORDS: {current_item.get('debug_amount', [])}")
+                                    print(f"  FINAL PRODUCT: {current_item.get('product_name')}")
+                                    print(f"  FINAL QUANTITY: {current_item.get('quantity')}")
+                                    print(f"  FINAL UNIT: {current_item.get('unit')}")
+                                    print(f"  FREE: {current_item.get('free', False)}")
                                     row_count += 1
                                 else:
                                     print(f"Skipped row (contains invalid keyword): {current_item['product_name']}")
@@ -529,25 +535,35 @@ class InvoiceParser:
                             'description_lines': []  # Track description lines separately
                         }
                     
-                    # Extract data from columns
+                    # Extract data from columns with detailed debug
                     if current_item:
+                        # Initialize column word collections for debug
+                        current_item['debug_description'] = []
+                        current_item['debug_hsn'] = []
+                        current_item['debug_quantity'] = []
+                        current_item['debug_rate'] = []
+                        current_item['debug_amount'] = []
+                        
                         for word in row_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
                             # Description column - preserve original order
-                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 50:
+                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 30:
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     current_item['description_lines'].append(text)
+                                    current_item['debug_description'].append(text)
                             
                             # HSN column
-                            elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 50:
+                            elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 30:
                                 if text and text.replace('.', '').isdigit() and len(text) >= 6:
                                     current_item['hsn'] = text
+                                    current_item['debug_hsn'].append(text)
                             
-                            # Quantity column
-                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 50:
+                            # Quantity column - TIGHTER TOLERANCE
+                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 20:
                                 if text:
+                                    current_item['debug_quantity'].append(text)
                                     # Check if it's a number (quantity)
                                     qty_match = re.search(r'(\d+\.?\d*)', text)
                                     if qty_match:
@@ -560,6 +576,16 @@ class InvoiceParser:
                                     # Check if it's a unit (NOS, PCS, etc.)
                                     if text.upper() in ['NOS', 'PCS', 'BOX', 'SET', 'MTR', 'KG']:
                                         current_item['unit'] = text.upper()
+                            
+                            # Rate column - for debug only
+                            elif col_positions.get('rate') and abs(x_pos - col_positions['rate']) < 30:
+                                if text:
+                                    current_item['debug_rate'].append(text)
+                            
+                            # Amount column - for debug only
+                            elif col_positions.get('amount') and abs(x_pos - col_positions['amount']) < 30:
+                                if text:
+                                    current_item['debug_amount'].append(text)
                             
                             # Check for FREE in description
                             if 'FREE' in text.upper():
@@ -584,10 +610,16 @@ class InvoiceParser:
                         if not any(kw in product_upper for kw in invalid_keywords):
                             items.append(current_item)
                             print(f"ROW {row_count}:")
-                            print(f"  Description column: {current_item.get('product_name')}")
-                            print(f"  HSN: {current_item.get('hsn')}")
-                            print(f"  Quantity column: {current_item.get('quantity')} {current_item.get('unit')}")
-                            print(f"  FINAL: Product = {current_item.get('product_name')}, Qty = {current_item.get('quantity')}, Unit = {current_item.get('unit')}, Free = {current_item.get('free', False)}")
+                            print(f"  SL NO: {current_item.get('serial')}")
+                            print(f"  DESCRIPTION WORDS: {current_item.get('debug_description', [])}")
+                            print(f"  HSN WORDS: {current_item.get('debug_hsn', [])}")
+                            print(f"  QUANTITY WORDS: {current_item.get('debug_quantity', [])}")
+                            print(f"  RATE WORDS: {current_item.get('debug_rate', [])}")
+                            print(f"  AMOUNT WORDS: {current_item.get('debug_amount', [])}")
+                            print(f"  FINAL PRODUCT: {current_item.get('product_name')}")
+                            print(f"  FINAL QUANTITY: {current_item.get('quantity')}")
+                            print(f"  FINAL UNIT: {current_item.get('unit')}")
+                            print(f"  FREE: {current_item.get('free', False)}")
                         else:
                             print(f"Skipped last row (contains invalid keyword): {current_item['product_name']}")
                     else:
@@ -595,16 +627,18 @@ class InvoiceParser:
             
             doc.close()
             
-            # Clean up product names
+            # Clean up product names and remove debug keys
             for item in items:
                 if item.get('product_name'):
                     # Remove FREE from product name (keep as metadata only)
                     item['product_name'] = re.sub(r'\bFREE\b', '', item['product_name'], flags=re.IGNORECASE).strip()
                     # Remove extra whitespace
                     item['product_name'] = re.sub(r'\s+', ' ', item['product_name']).strip()
-                    # Remove description_lines key (temporary)
-                    if 'description_lines' in item:
-                        del item['description_lines']
+                
+                # Remove temporary/debug keys
+                for key in ['description_lines', 'debug_description', 'debug_hsn', 'debug_quantity', 'debug_rate', 'debug_amount']:
+                    if key in item:
+                        del item[key]
             
             print(f"Total items extracted from coordinates: {len(items)}")
             return items
