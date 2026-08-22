@@ -535,11 +535,11 @@ class InvoiceParser:
                                 # Treat as continuation line for current item
                                 print(f"  Treating as continuation line for current item")
                                 # Check if it contains quantity with NOS indicator
-                                qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos)\b', line)
+                                qty_match = re.search(r'\b([1-9]\d{0,3}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                                 if qty_match:
                                     try:
                                         qty_val = float(qty_match.group(1))
-                                        if 1 <= qty_val <= 500:
+                                        if 1 <= qty_val <= 10000:
                                             current_item['quantity'] = int(qty_val)
                                             print(f"  Found quantity: {qty_val}")
                                     except ValueError:
@@ -556,11 +556,11 @@ class InvoiceParser:
                             # Treat as continuation line for current item
                             print(f"  Treating as continuation line for current item")
                             # Check if it contains quantity with NOS indicator
-                            qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos)\b', line)
+                            qty_match = re.search(r'\b([1-9]\d{0,3}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                             if qty_match:
                                 try:
                                     qty_val = float(qty_match.group(1))
-                                    if 1 <= qty_val <= 500:
+                                    if 1 <= qty_val <= 10000:
                                         current_item['quantity'] = int(qty_val)
                                         print(f"  Found quantity: {qty_val}")
                                 except ValueError:
@@ -592,11 +592,12 @@ class InvoiceParser:
                 
                 # Check if it contains quantity with NOS indicator
                 # Look for pattern like "20.00 NOS" but avoid HSN codes (8 digits)
-                qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos)\b', line)
+                # Also handle quantities at start like "120 × NOS"
+                qty_match = re.search(r'\b([1-9]\d{0,3}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                 if qty_match:
                     try:
                         qty_val = float(qty_match.group(1))
-                        if 1 <= qty_val <= 500:
+                        if 1 <= qty_val <= 10000:
                             current_item['quantity'] = int(qty_val)
                             print(f"  Found quantity: {qty_val}")
                     except ValueError:
