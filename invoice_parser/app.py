@@ -392,7 +392,7 @@ class InvoiceParser:
         return result
     
     def extract_items_from_pdf_coordinates(self, pdf_bytes: bytes) -> List[Dict]:
-        """Extract items using PyMuPDF coordinate-based column extraction"""
+        """Extract items using PyMuPDF coordinate-based column extraction with strict table boundaries"""
         items = []
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -435,6 +435,18 @@ class InvoiceParser:
                     print("No header row found, skipping coordinate extraction")
                     continue
                 
+                # Find Total row (end of product table)
+                total_y = None
+                for y_key in sorted(rows.keys()):
+                    if y_key <= header_y:
+                        continue
+                    row_words = rows[y_key]
+                    row_text = ' '.join([w['text'] for w in row_words]).upper()
+                    if 'TOTAL' in row_text and 'CGST' not in row_text and 'SGST' not in row_text:
+                        total_y = y_key
+                        print(f"Found Total row at y={y_key}: {row_text}")
+                        break
+                
                 # Identify column x-positions from header
                 col_positions = {}
                 for word in header_row:
@@ -457,27 +469,54 @@ class InvoiceParser:
                 
                 print(f"Column positions: {col_positions}")
                 
-                # Process data rows (after header)
+                # Process data rows (after header, before Total)
                 current_item = None
+                row_count = 0
                 for y_key in sorted(rows.keys()):
                     if y_key <= header_y:
                         continue
+                    if total_y and y_key >= total_y:
+                        print(f"Reached Total row at y={y_key}, stopping product table processing")
+                        break
                     
                     row_words = rows[y_key]
+                    row_text = ' '.join([w['text'] for w in row_words])
                     
-                    # Check if this row starts with a serial number
+                    # Check if this row starts with a serial number (new product row)
                     serial_word = None
                     for word in row_words:
                         if word['x0'] < col_positions.get('description', 100):
-                            if word['text'].strip().replace('.', '').isdigit():
+                            if word['text'].strip().replace('.', '').isdigit() and len(word['text'].strip()) <= 3:
                                 serial_word = word
                                 break
                     
                     if serial_word:
-                        # New row - save previous item
-                        if current_item and current_item.get('product_name') and current_item.get('quantity'):
-                            items.append(current_item)
-                            print(f"DEBUG: Row - Serial: {current_item.get('serial')}, Product: {current_item.get('product_name')}, HSN: {current_item.get('hsn')}, Qty: {current_item.get('quantity')}, Unit: {current_item.get('unit')}, Free: {current_item.get('free', False)}")
+                        # New row - save previous item with validation
+                        if current_item:
+                            # Strict validation before saving
+                            if (current_item.get('product_name') and 
+                                len(current_item['product_name'].strip()) > 3 and
+                                current_item.get('quantity') and 
+                                current_item.get('quantity') > 0 and
+                                current_item.get('unit')):
+                                
+                                # Additional validation: ensure it's not a footer/summary row
+                                invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
+                                                  'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
+                                                  'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC']
+                                product_upper = current_item['product_name'].upper()
+                                if not any(kw in product_upper for kw in invalid_keywords):
+                                    items.append(current_item)
+                                    print(f"ROW {row_count}:")
+                                    print(f"  Description column: {current_item.get('product_name')}")
+                                    print(f"  HSN: {current_item.get('hsn')}")
+                                    print(f"  Quantity column: {current_item.get('quantity')} {current_item.get('unit')}")
+                                    print(f"  FINAL: Product = {current_item.get('product_name')}, Qty = {current_item.get('quantity')}, Unit = {current_item.get('unit')}, Free = {current_item.get('free', False)}")
+                                    row_count += 1
+                                else:
+                                    print(f"Skipped row (contains invalid keyword): {current_item['product_name']}")
+                            else:
+                                print(f"Skipped row (validation failed): product_name={current_item.get('product_name')}, quantity={current_item.get('quantity')}, unit={current_item.get('unit')}")
                         
                         # Start new item
                         current_item = {
@@ -486,7 +525,8 @@ class InvoiceParser:
                             'hsn': None,
                             'quantity': None,
                             'unit': None,
-                            'free': False
+                            'free': False,
+                            'description_lines': []  # Track description lines separately
                         }
                     
                     # Extract data from columns
@@ -495,13 +535,10 @@ class InvoiceParser:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column
+                            # Description column - preserve original order
                             if col_positions.get('description') and abs(x_pos - col_positions['description']) < 50:
-                                if text and text not in ['Description', 'Goods']:
-                                    if current_item['product_name']:
-                                        current_item['product_name'] += ' ' + text
-                                    else:
-                                        current_item['product_name'] = text
+                                if text and text not in ['Description', 'Goods', 'of']:
+                                    current_item['description_lines'].append(text)
                             
                             # HSN column
                             elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 50:
@@ -528,10 +565,33 @@ class InvoiceParser:
                             if 'FREE' in text.upper():
                                 current_item['free'] = True
                 
-                # Save last item
-                if current_item and current_item.get('product_name') and current_item.get('quantity'):
-                    items.append(current_item)
-                    print(f"DEBUG: Row - Serial: {current_item.get('serial')}, Product: {current_item.get('product_name')}, HSN: {current_item.get('hsn')}, Qty: {current_item.get('quantity')}, Unit: {current_item.get('unit')}, Free: {current_item.get('free', False)}")
+                # Save last item with validation
+                if current_item:
+                    # Combine description lines preserving order
+                    current_item['product_name'] = ' '.join(current_item['description_lines']).strip()
+                    
+                    # Strict validation
+                    if (current_item.get('product_name') and 
+                        len(current_item['product_name'].strip()) > 3 and
+                        current_item.get('quantity') and 
+                        current_item.get('quantity') > 0 and
+                        current_item.get('unit')):
+                        
+                        invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
+                                          'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
+                                          'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC']
+                        product_upper = current_item['product_name'].upper()
+                        if not any(kw in product_upper for kw in invalid_keywords):
+                            items.append(current_item)
+                            print(f"ROW {row_count}:")
+                            print(f"  Description column: {current_item.get('product_name')}")
+                            print(f"  HSN: {current_item.get('hsn')}")
+                            print(f"  Quantity column: {current_item.get('quantity')} {current_item.get('unit')}")
+                            print(f"  FINAL: Product = {current_item.get('product_name')}, Qty = {current_item.get('quantity')}, Unit = {current_item.get('unit')}, Free = {current_item.get('free', False)}")
+                        else:
+                            print(f"Skipped last row (contains invalid keyword): {current_item['product_name']}")
+                    else:
+                        print(f"Skipped last row (validation failed): product_name={current_item.get('product_name')}, quantity={current_item.get('quantity')}, unit={current_item.get('unit')}")
             
             doc.close()
             
@@ -542,12 +602,17 @@ class InvoiceParser:
                     item['product_name'] = re.sub(r'\bFREE\b', '', item['product_name'], flags=re.IGNORECASE).strip()
                     # Remove extra whitespace
                     item['product_name'] = re.sub(r'\s+', ' ', item['product_name']).strip()
+                    # Remove description_lines key (temporary)
+                    if 'description_lines' in item:
+                        del item['description_lines']
             
             print(f"Total items extracted from coordinates: {len(items)}")
             return items
             
         except Exception as e:
             print(f"Coordinate extraction error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def extract_items_from_text(self, text: str) -> List[Dict]:
