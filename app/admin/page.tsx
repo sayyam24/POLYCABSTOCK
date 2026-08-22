@@ -45,9 +45,14 @@ export default function AdminDashboard() {
   const loadStats = async () => {
     try {
       const res = await fetch('/api/admin/stats')
+      console.log('Admin stats response status:', res.status)
       if (res.ok) {
         const data = await res.json()
+        console.log('Admin stats response data:', data)
         setStats(data)
+      } else {
+        const errorData = await res.json()
+        console.error('Admin stats error:', errorData)
       }
     } catch (err) {
       console.error('Failed to load admin stats:', err)
@@ -57,9 +62,14 @@ export default function AdminDashboard() {
   const loadRecentActivity = async () => {
     try {
       const res = await fetch('/api/admin/recent-activity')
+      console.log('Recent activity response status:', res.status)
       if (res.ok) {
         const data = await res.json()
+        console.log('Recent activity response data:', data)
         setRecentActivity(data.activities || [])
+      } else {
+        const errorData = await res.json()
+        console.error('Recent activity error:', errorData)
       }
     } catch (err) {
       console.error('Failed to load recent activity:', err)
