@@ -255,14 +255,17 @@ class InvoiceParser:
             
             # Only add item if we have both product name and quantity
             if product_name and quantity:
-                # Remove common invalid phrases from product name (more comprehensive)
-                product_name = re.sub(r'^FREE\s+', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s+FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*\(-?\d+\.?\d*\)\s*', '', product_name).strip()
-                product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+                # Skip lines with FREE, discount patterns, or invalid content entirely
+                original_name = product_name
+                if 'FREE' in product_name.upper() or '(-)' in product_name or '(+)' in product_name:
+                    print(f"  Skipped discount/FREE line: {product_name}")
+                    continue
+                if 'E. & O.E' in product_name.upper() or 'E&O.E' in product_name.upper():
+                    print(f"  Skipped E&O.E line: {product_name}")
+                    continue
+                if 'ROUND OFF' in product_name.upper() or 'TOTAL' in product_name.upper() or 'SUBTOTAL' in product_name.upper():
+                    print(f"  Skipped summary line: {product_name}")
+                    continue
                 
                 # Strip trailing prices from product name (handle comma-separated numbers)
                 product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
@@ -276,7 +279,7 @@ class InvoiceParser:
                     continue
                 
                 # Skip if product name is entirely invalid keywords
-                invalid_keywords = ['FREE', 'E. & O.E', 'E&O.E', 'ROUND OFF', 'TOTAL', 'SUBTOTAL', 'NOS', 'PCS']
+                invalid_keywords = ['NOS', 'PCS']
                 if product_name.upper() in invalid_keywords:
                     print(f"  Skipped invalid line: {product_name}")
                     continue
@@ -628,14 +631,16 @@ class InvoiceParser:
             product_name = re.sub(r'\(cid:\d+\)', '', item['product_name']).strip()
             product_name = re.sub(r'\b\d{8}\b', '', product_name).strip()
             
-            # Remove common invalid phrases from product name (more comprehensive)
-            product_name = re.sub(r'^FREE\s+', '', product_name, flags=re.IGNORECASE).strip()
-            product_name = re.sub(r'\s+FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
-            product_name = re.sub(r'\s*\(-?\d+\.?\d*\)\s*', '', product_name).strip()
-            product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
-            product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
-            product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
-            product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+            # Skip lines with FREE, discount patterns, or invalid content entirely
+            if 'FREE' in product_name.upper() or '(-)' in product_name or '(+)' in product_name:
+                print(f"  Skipped discount/FREE line: {product_name}")
+                continue
+            if 'E. & O.E' in product_name.upper() or 'E&O.E' in product_name.upper():
+                print(f"  Skipped E&O.E line: {product_name}")
+                continue
+            if 'ROUND OFF' in product_name.upper() or 'TOTAL' in product_name.upper() or 'SUBTOTAL' in product_name.upper():
+                print(f"  Skipped summary line: {product_name}")
+                continue
             
             # Strip trailing prices from product name (handle comma-separated numbers)
             product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
@@ -649,7 +654,7 @@ class InvoiceParser:
                 continue
             
             # Skip if product name is entirely invalid keywords
-            invalid_keywords = ['FREE', 'E. & O.E', 'E&O.E', 'ROUND OFF', 'TOTAL', 'SUBTOTAL', 'NOS', 'PCS']
+            invalid_keywords = ['NOS', 'PCS']
             if product_name.upper() in invalid_keywords:
                 print(f"  Skipped invalid line: {product_name}")
                 continue
