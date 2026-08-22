@@ -255,18 +255,20 @@ class InvoiceParser:
             
             # Only add item if we have both product name and quantity
             if product_name and quantity:
+                # Remove common invalid phrases from product name (more comprehensive)
+                product_name = re.sub(r'^FREE\s+', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s+FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*\(-?\d+\.?\d*\)\s*', '', product_name).strip()
+                product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+                product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+                
                 # Strip trailing prices from product name (handle comma-separated numbers)
                 product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
                 product_name = re.sub(r'\s+[\d,]+\s*$', '', product_name).strip()
                 product_name = re.sub(r'\s+\d+\.\d+\s*$', '', product_name).strip()
                 product_name = re.sub(r'\s+\d+\s*$', '', product_name).strip()
-                
-                # Remove common invalid phrases from product name
-                product_name = re.sub(r'\s*FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
-                product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
                 
                 # Skip if product name is too short after cleaning
                 if len(product_name) < 3:
@@ -626,18 +628,20 @@ class InvoiceParser:
             product_name = re.sub(r'\(cid:\d+\)', '', item['product_name']).strip()
             product_name = re.sub(r'\b\d{8}\b', '', product_name).strip()
             
-            # Strip trailing prices (handle comma-separated numbers)
-            product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
-            product_name = re.sub(r'\s+[\d,]+\s*$', '', product_name).strip()
-            product_name = re.sub(r'\s+\d+\.\d+\s*$', '', product_name).strip()
-            product_name = re.sub(r'\s+\d+\s*$', '', product_name).strip()
-            
-            # Remove common invalid phrases from product name
-            product_name = re.sub(r'\s*FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
+            # Remove common invalid phrases from product name (more comprehensive)
+            product_name = re.sub(r'^FREE\s+', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s+FREE\s*\(-?\d+\.?\d*\)', '', product_name, flags=re.IGNORECASE).strip()
+            product_name = re.sub(r'\s*\(-?\d+\.?\d*\)\s*', '', product_name).strip()
             product_name = re.sub(r'\s*E\.?\s*&\s*O\.?E\.?', '', product_name, flags=re.IGNORECASE).strip()
             product_name = re.sub(r'\s*ROUND\s*OFF', '', product_name, flags=re.IGNORECASE).strip()
             product_name = re.sub(r'\s*TOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
             product_name = re.sub(r'\s*SUBTOTAL\s*', '', product_name, flags=re.IGNORECASE).strip()
+            
+            # Strip trailing prices from product name (handle comma-separated numbers)
+            product_name = re.sub(r'\s+[\d,]+\.\d+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+[\d,]+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+\d+\.\d+\s*$', '', product_name).strip()
+            product_name = re.sub(r'\s+\d+\s*$', '', product_name).strip()
             
             # Skip if product name is too short after cleaning
             if len(product_name) < 3:
