@@ -369,13 +369,15 @@ class InvoiceParser:
             result['retailer_name'] = self.extract_retailer_name(text)
             
             # Use coordinate-based extraction (more accurate for column identification)
+            print("Attempting coordinate-based extraction...")
             items = self.extract_items_from_pdf_coordinates(pdf_bytes)
             if not items:
                 # Fallback to text-based extraction if coordinate extraction fails
-                print("Coordinate extraction failed, falling back to text-based extraction")
+                print("Coordinate extraction returned no items, falling back to text-based extraction")
                 items = self.extract_items_from_text(text)
                 result['extraction_method'] = f'{extraction_method}_text_based'
             else:
+                print(f"Coordinate extraction successful, found {len(items)} items")
                 result['extraction_method'] = f'{extraction_method}_coordinate_based'
             result['items'] = items
             
@@ -435,17 +437,31 @@ class InvoiceParser:
                     print("No header row found, skipping coordinate extraction")
                     continue
                 
-                # Find Total row (end of product table)
+                # Find Total row (end of product table) - more robust detection
                 total_y = None
                 for y_key in sorted(rows.keys()):
                     if y_key <= header_y:
                         continue
                     row_words = rows[y_key]
                     row_text = ' '.join([w['text'] for w in row_words]).upper()
-                    if 'TOTAL' in row_text and 'CGST' not in row_text and 'SGST' not in row_text:
-                        total_y = y_key
-                        print(f"Found Total row at y={y_key}: {row_text}")
-                        break
+                    # Look for Total row that's NOT CGST/SGST
+                    if 'TOTAL' in row_text:
+                        # Check if this is a tax total row (CGST/SGST) or the main Total row
+                        if 'CGST' not in row_text and 'SGST' not in row_text and 'IGST' not in row_text:
+                            total_y = y_key
+                            print(f"Found Total row at y={y_key}: {row_text}")
+                            break
+                # Also check for other end-of-table markers
+                if not total_y:
+                    for y_key in sorted(rows.keys()):
+                        if y_key <= header_y:
+                            continue
+                        row_words = rows[y_key]
+                        row_text = ' '.join([w['text'] for w in row_words]).upper()
+                        if 'BILL DETAILS' in row_text or 'OUTPUT' in row_text or 'DECLARATION' in row_text:
+                            total_y = y_key
+                            print(f"Found end-of-table marker at y={y_key}: {row_text}")
+                            break
                 
                 # Identify column x-positions from header
                 col_positions = {}
@@ -503,7 +519,8 @@ class InvoiceParser:
                                 # Additional validation: ensure it's not a footer/summary row
                                 invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
                                                   'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
-                                                  'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC']
+                                                  'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC', 'DETAILS', 
+                                                  'REF', 'AUTHORISED', 'SIGNATORY', 'COMPANY', 'FOR']
                                 product_upper = current_item['product_name'].upper()
                                 if not any(kw in product_upper for kw in invalid_keywords):
                                     items.append(current_item)
@@ -605,7 +622,8 @@ class InvoiceParser:
                         
                         invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
                                           'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
-                                          'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC']
+                                          'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC', 'DETAILS', 
+                                          'REF', 'AUTHORISED', 'SIGNATORY', 'COMPANY', 'FOR']
                         product_upper = current_item['product_name'].upper()
                         if not any(kw in product_upper for kw in invalid_keywords):
                             items.append(current_item)
