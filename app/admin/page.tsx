@@ -34,10 +34,12 @@ export default function AdminDashboard() {
     activeSubscriptions: 0,
     totalRevenue: 0
   })
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadStats()
+    loadRecentActivity()
   }, [])
 
   const loadStats = async () => {
@@ -49,6 +51,18 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error('Failed to load admin stats:', err)
+    }
+  }
+
+  const loadRecentActivity = async () => {
+    try {
+      const res = await fetch('/api/admin/recent-activity')
+      if (res.ok) {
+        const data = await res.json()
+        setRecentActivity(data.activities || [])
+      }
+    } catch (err) {
+      console.error('Failed to load recent activity:', err)
     } finally {
       setLoading(false)
     }
@@ -223,21 +237,28 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-950/50">
-                          <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    {recentActivity.length > 0 ? (
+                      recentActivity.map((activity, i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-950/50">
+                            {activity.type === 'user' && <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+                            {activity.type === 'shipment' && <Truck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+                            {activity.type === 'stock' && <Warehouse className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+                            {activity.type === 'invoice' && <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">{activity.time}</p>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Completed</span>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">New user registered</p>
-                          <p className="text-xs text-muted-foreground">2 hours ago</p>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-green-600">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>Completed</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
