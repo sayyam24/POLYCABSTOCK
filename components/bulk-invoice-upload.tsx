@@ -384,30 +384,13 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
                             Parsed Invoice Data:
                           </p>
                           <div className="text-xs space-y-1">
-                            <p className="text-blue-800 dark:text-blue-200">
-                              Invoice: {progress.parsedData.invoice_number}
-                            </p>
-                            <p className="text-blue-800 dark:text-blue-200">
-                              Date: {progress.parsedData.invoice_date}
-                            </p>
-                            <p className="text-blue-800 dark:text-blue-200">
-                              Retailer: {progress.parsedData.retailer_name}
-                            </p>
-                            <p className="text-blue-800 dark:text-blue-200">
-                              Items: {progress.parsedData.items?.length || 0}
-                            </p>
                             {progress.parsedData.items && progress.parsedData.items.length > 0 && (
                               <div className="mt-2 space-y-1">
-                                {progress.parsedData.items.slice(0, 3).map((item: any, i: number) => (
-                                  <p key={i} className="text-blue-700 dark:text-blue-300">
-                                    • {item.productName} - Qty: {item.quantity}
+                                {progress.parsedData.items.map((item: any, i: number) => (
+                                  <p key={i} className="text-blue-800 dark:text-blue-200">
+                                    • {item.productName || item.product_name} - Qty: {item.quantity}
                                   </p>
                                 ))}
-                                {progress.parsedData.items.length > 3 && (
-                                  <p className="text-blue-600 dark:text-blue-400">
-                                    +{progress.parsedData.items.length - 3} more items
-                                  </p>
-                                )}
                               </div>
                             )}
                           </div>
