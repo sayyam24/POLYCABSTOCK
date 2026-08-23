@@ -394,7 +394,7 @@ class InvoiceParser:
         return result
     
     def extract_items_from_pdf_coordinates(self, pdf_bytes: bytes) -> List[Dict]:
-        """Extract items using PyMuPDF coordinate-based column extraction with strict table boundaries"""
+        """Extract ONLY product_name, quantity, and free status using Sl No. + coordinates"""
         items = []
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -437,7 +437,7 @@ class InvoiceParser:
                     print("No header row found, skipping coordinate extraction")
                     continue
                 
-                # Find Total row (end of product table) - more robust detection
+                # Find Total row (end of product table)
                 total_y = None
                 for y_key in sorted(rows.keys()):
                     if y_key <= header_y:
@@ -472,22 +472,13 @@ class InvoiceParser:
                         col_positions['serial'] = x_pos
                     elif 'description' in text:
                         col_positions['description'] = x_pos
-                    elif 'hsn' in text or 'sac' in text:
-                        col_positions['hsn'] = x_pos
                     elif 'quantity' in text or 'qty' in text:
                         col_positions['quantity'] = x_pos
-                    elif 'sale' in text or 'price' in text:
-                        col_positions['sale_price'] = x_pos
-                    elif 'rate' in text:
-                        col_positions['rate'] = x_pos
-                    elif 'amount' in text:
-                        col_positions['amount'] = x_pos
                 
                 print(f"Column positions: {col_positions}")
                 
                 # Process data rows (after header, before Total)
                 current_item = None
-                row_count = 0
                 for y_key in sorted(rows.keys()):
                     if y_key <= header_y:
                         continue
@@ -507,108 +498,46 @@ class InvoiceParser:
                                 break
                     
                     if serial_word:
-                        # New row - save previous item with validation
+                        # Save previous item if exists
                         if current_item:
-                            # Combine description lines preserving order
-                            current_item['product_name'] = ' '.join(current_item['description_lines']).strip()
+                            # Combine description lines
+                            product_name = ' '.join(current_item['description_lines']).strip()
+                            # Clean up product name
+                            product_name = re.sub(r'\s+', ' ', product_name).strip()
                             
-                            # Fallback: if product_name is empty, try to extract from any collected words
-                            if not current_item.get('product_name') or len(current_item['product_name'].strip()) <= 3:
-                                # Try to use any description words we collected
-                                if current_item.get('debug_description'):
-                                    fallback_name = ' '.join(current_item['debug_description']).strip()
-                                    if len(fallback_name) > 3:
-                                        current_item['product_name'] = fallback_name
-                                        print(f"Using fallback product name from debug_description: {fallback_name}")
-                                # Try fallback_description if debug_description didn't work
-                                elif current_item.get('fallback_description'):
-                                    fallback_name = ' '.join(current_item['fallback_description']).strip()
-                                    if len(fallback_name) > 3:
-                                        current_item['product_name'] = fallback_name
-                                        print(f"Using fallback product name from fallback_description: {fallback_name}")
-                            
-                            # Strict validation before saving
-                            if (current_item.get('product_name') and 
-                                len(current_item['product_name'].strip()) > 3 and
-                                current_item.get('quantity') and 
-                                current_item.get('quantity') > 0 and
-                                current_item.get('unit')):
-                                
-                                # Additional validation: ensure it's not a footer/summary row
-                                invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
-                                                  'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
-                                                  'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC', 'DETAILS', 
-                                                  'REF', 'AUTHORISED', 'SIGNATORY', 'COMPANY', 'FOR']
-                                product_upper = current_item['product_name'].upper()
-                                if not any(kw in product_upper for kw in invalid_keywords):
-                                    items.append(current_item)
-                                    print(f"ROW {row_count}:")
-                                    print(f"  SL NO: {current_item.get('serial')}")
-                                    print(f"  DESCRIPTION WORDS: {current_item.get('debug_description', [])}")
-                                    print(f"  HSN WORDS: {current_item.get('debug_hsn', [])}")
-                                    print(f"  QUANTITY WORDS: {current_item.get('debug_quantity', [])}")
-                                    print(f"  RATE WORDS: {current_item.get('debug_rate', [])}")
-                                    print(f"  AMOUNT WORDS: {current_item.get('debug_amount', [])}")
-                                    print(f"  FINAL PRODUCT: {current_item.get('product_name')}")
-                                    print(f"  FINAL QUANTITY: {current_item.get('quantity')}")
-                                    print(f"  FINAL UNIT: {current_item.get('unit')}")
-                                    print(f"  FREE: {current_item.get('free', False)}")
-                                    row_count += 1
-                                else:
-                                    print(f"Skipped row (contains invalid keyword): {current_item['product_name']}")
-                            else:
-                                print(f"Skipped row (validation failed): product_name={current_item.get('product_name')}, quantity={current_item.get('quantity')}, unit={current_item.get('unit')}")
+                            # Only save if we have a product name and quantity
+                            if product_name and current_item.get('quantity'):
+                                items.append({
+                                    'product_name': product_name,
+                                    'quantity': current_item['quantity'],
+                                    'free': current_item.get('free', False)
+                                })
+                                print(f"Saved item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
                         
                         # Start new item
                         current_item = {
                             'serial': serial_word['text'].strip(),
-                            'product_name': '',
-                            'hsn': None,
+                            'description_lines': [],
                             'quantity': None,
-                            'unit': None,
-                            'free': False,
-                            'description_lines': []  # Track description lines separately
+                            'free': False
                         }
                     
-                    # Extract data from columns with detailed debug
+                    # Extract data from columns
                     if current_item:
-                        # Initialize column word collections for debug
-                        current_item['debug_description'] = []
-                        current_item['debug_hsn'] = []
-                        current_item['debug_quantity'] = []
-                        current_item['debug_rate'] = []
-                        current_item['debug_amount'] = []
-                        
                         for word in row_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column - preserve original order
-                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 30:
+                            # Description column - collect all words
+                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 100:
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     current_item['description_lines'].append(text)
-                                    current_item['debug_description'].append(text)
-                                    print(f"  Added description word: '{text}' at x={x_pos}")
+                                    if 'FREE' in text.upper():
+                                        current_item['free'] = True
                             
-                            # Also capture words in a broader range for fallback
-                            elif not col_positions.get('description') or abs(x_pos - col_positions['description']) < 100:
-                                if text and len(text) > 2 and not text.replace('.', '').isdigit():
-                                    # This might be a description word outside the strict column
-                                    if not current_item.get('fallback_description'):
-                                        current_item['fallback_description'] = []
-                                    current_item['fallback_description'].append(text)
-                                    print(f"  Added fallback description word: '{text}' at x={x_pos}")
-                            
-                            # HSN column
-                            elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 30:
-                                if text and text.replace('.', '').isdigit() and len(text) >= 6:
-                                    current_item['hsn'] = text
-                                    current_item['debug_hsn'].append(text)
-                            
-                            # Quantity column - TIGHTER TOLERANCE
-                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 20:
+                            # Quantity column - extract ONLY from quantity column
+                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 30:
                                 if text:
-                                    current_item['debug_quantity'].append(text)
                                     # Check if it's a number (quantity)
                                     qty_match = re.search(r'(\d+\.?\d*)', text)
                                     if qty_match:
@@ -616,92 +545,29 @@ class InvoiceParser:
                                             qty_val = float(qty_match.group(1))
                                             if 0 < qty_val < 10000:
                                                 current_item['quantity'] = int(qty_val)
+                                                print(f"Found quantity: {qty_val}")
                                         except ValueError:
                                             pass
-                                    # Check if it's a unit (NOS, PCS, etc.)
-                                    if text.upper() in ['NOS', 'PCS', 'BOX', 'SET', 'MTR', 'KG']:
-                                        current_item['unit'] = text.upper()
-                            
-                            # Rate column - for debug only
-                            elif col_positions.get('rate') and abs(x_pos - col_positions['rate']) < 30:
-                                if text:
-                                    current_item['debug_rate'].append(text)
-                            
-                            # Amount column - for debug only
-                            elif col_positions.get('amount') and abs(x_pos - col_positions['amount']) < 30:
-                                if text:
-                                    current_item['debug_amount'].append(text)
-                            
-                            # Check for FREE in description
-                            if 'FREE' in text.upper():
-                                current_item['free'] = True
                 
-                # Save last item with validation
+                # Save last item
                 if current_item:
-                    # Combine description lines preserving order
-                    current_item['product_name'] = ' '.join(current_item['description_lines']).strip()
+                    product_name = ' '.join(current_item['description_lines']).strip()
+                    product_name = re.sub(r'\s+', ' ', product_name).strip()
                     
-                    # Fallback: if product_name is empty, try to extract from any collected words
-                    if not current_item.get('product_name') or len(current_item['product_name'].strip()) <= 3:
-                        # Try to use any description words we collected
-                        if current_item.get('debug_description'):
-                            fallback_name = ' '.join(current_item['debug_description']).strip()
-                            if len(fallback_name) > 3:
-                                current_item['product_name'] = fallback_name
-                                print(f"Using fallback product name from debug_description: {fallback_name}")
-                        # Try fallback_description if debug_description didn't work
-                        elif current_item.get('fallback_description'):
-                            fallback_name = ' '.join(current_item['fallback_description']).strip()
-                            if len(fallback_name) > 3:
-                                current_item['product_name'] = fallback_name
-                                print(f"Using fallback product name from fallback_description: {fallback_name}")
-                    
-                    # Strict validation
-                    if (current_item.get('product_name') and 
-                        len(current_item['product_name'].strip()) > 3 and
-                        current_item.get('quantity') and 
-                        current_item.get('quantity') > 0 and
-                        current_item.get('unit')):
-                        
-                        invalid_keywords = ['TOTAL', 'CGST', 'SGST', 'ROUND OFF', 'BILL DETAILS', 
-                                          'OUTPUT', 'DECLARATION', 'BANK', 'TERMS', 'INR', 
-                                          'AMOUNT', 'CHARGEABLE', 'WORDS', 'HSN/SAC', 'DETAILS', 
-                                          'REF', 'AUTHORISED', 'SIGNATORY', 'COMPANY', 'FOR']
-                        product_upper = current_item['product_name'].upper()
-                        if not any(kw in product_upper for kw in invalid_keywords):
-                            items.append(current_item)
-                            print(f"ROW {row_count}:")
-                            print(f"  SL NO: {current_item.get('serial')}")
-                            print(f"  DESCRIPTION WORDS: {current_item.get('debug_description', [])}")
-                            print(f"  HSN WORDS: {current_item.get('debug_hsn', [])}")
-                            print(f"  QUANTITY WORDS: {current_item.get('debug_quantity', [])}")
-                            print(f"  RATE WORDS: {current_item.get('debug_rate', [])}")
-                            print(f"  AMOUNT WORDS: {current_item.get('debug_amount', [])}")
-                            print(f"  FINAL PRODUCT: {current_item.get('product_name')}")
-                            print(f"  FINAL QUANTITY: {current_item.get('quantity')}")
-                            print(f"  FINAL UNIT: {current_item.get('unit')}")
-                            print(f"  FREE: {current_item.get('free', False)}")
-                        else:
-                            print(f"Skipped last row (contains invalid keyword): {current_item['product_name']}")
-                    else:
-                        print(f"Skipped last row (validation failed): product_name={current_item.get('product_name')}, quantity={current_item.get('quantity')}, unit={current_item.get('unit')}")
+                    if product_name and current_item.get('quantity'):
+                        items.append({
+                            'product_name': product_name,
+                            'quantity': current_item['quantity'],
+                            'free': current_item.get('free', False)
+                        })
+                        print(f"Saved last item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
             
             doc.close()
             
-            # Clean up product names and remove debug keys
+            print(f"Total items extracted: {len(items)}")
             for item in items:
-                if item.get('product_name'):
-                    # Remove FREE from product name (keep as metadata only)
-                    item['product_name'] = re.sub(r'\bFREE\b', '', item['product_name'], flags=re.IGNORECASE).strip()
-                    # Remove extra whitespace
-                    item['product_name'] = re.sub(r'\s+', ' ', item['product_name']).strip()
-                
-                # Remove temporary/debug keys (but keep fallback_description for debugging)
-                for key in ['description_lines', 'debug_description', 'debug_hsn', 'debug_quantity', 'debug_rate', 'debug_amount']:
-                    if key in item:
-                        del item[key]
+                print(f"  - {item['product_name']} (Qty: {item['quantity']}, FREE: {item['free']})")
             
-            print(f"Total items extracted from coordinates: {len(items)}")
             return items
             
         except Exception as e:
