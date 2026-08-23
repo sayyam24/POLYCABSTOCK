@@ -812,11 +812,13 @@ class InvoiceParser:
                 # Look for pattern like "20.00 NOS" but avoid HSN codes (8 digits)
                 # Also handle quantities at start like "120 × NOS"
                 # Handle table format: HSN RATE NOS QUANTITY NOS TOTAL
-                qty_match = re.search(r'\b([1-9]\d{0,3}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
+                # IMPROVED: Only match smaller numbers (likely quantities, not prices)
+                qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                 if qty_match:
                     try:
                         qty_val = float(qty_match.group(1))
-                        if 1 <= qty_val <= 10000:
+                        # Stricter validation: quantities are typically smaller (1-999)
+                        if 1 <= qty_val <= 999:
                             current_item['quantity'] = int(qty_val)
                             print(f"  Found quantity: {qty_val}")
                     except ValueError:
@@ -833,7 +835,8 @@ class InvoiceParser:
                             if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
                                 try:
                                     qty_val = float(parts[i + 1])
-                                    if 1 <= qty_val <= 10000:
+                                    # Stricter validation: quantities are typically smaller (1-999)
+                                    if 1 <= qty_val <= 999:
                                         current_item['quantity'] = int(qty_val)
                                         print(f"  Found quantity from table format (after HSN): {qty_val}")
                                         break
