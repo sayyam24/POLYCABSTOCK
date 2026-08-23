@@ -524,7 +524,10 @@ class InvoiceParser:
                     
                     # Extract data from columns
                     if current_item:
-                        for word in row_words:
+                        # Sort words by x-position to ensure correct left-to-right order
+                        sorted_words = sorted(row_words, key=lambda w: w['x0'])
+                        
+                        for word in sorted_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
@@ -536,6 +539,7 @@ class InvoiceParser:
                                         print(f"  Skipped serial number in description: {text}")
                                         continue
                                     current_item['description_lines'].append(text)
+                                    print(f"  Added description word at x={x_pos}: {text}")
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
                             
