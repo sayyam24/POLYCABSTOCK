@@ -813,15 +813,20 @@ class InvoiceParser:
                 # Also handle quantities at start like "120 × NOS"
                 # Handle table format: HSN RATE NOS QUANTITY NOS TOTAL
                 # IMPROVED: Only match smaller numbers (likely quantities, not prices)
+                print(f"  Checking line for quantity: {line}")
                 qty_match = re.search(r'\b([1-9]\d{0,2}(?:\.\d+)?)\s*(?:NOS|PCS|pcs|nos|×|x)\b', line)
                 if qty_match:
                     try:
                         qty_val = float(qty_match.group(1))
+                        print(f"  Found number {qty_val} with NOS/PCS indicator")
                         # Stricter validation: quantities are typically smaller (1-999)
                         if 1 <= qty_val <= 999:
                             current_item['quantity'] = int(qty_val)
-                            print(f"  Found quantity: {qty_val}")
+                            print(f"  ✓ Accepted quantity: {qty_val}")
+                        else:
+                            print(f"  ✗ Rejected quantity (out of range): {qty_val}")
                     except ValueError:
+                        print(f"  ✗ Failed to parse number: {qty_match.group(1)}")
                         pass
                 
                 # Always try table format: HSN QUANTITY NOS PRICE NOS TOTAL
@@ -835,12 +840,16 @@ class InvoiceParser:
                             if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
                                 try:
                                     qty_val = float(parts[i + 1])
+                                    print(f"  Found number {qty_val} after HSN in table format")
                                     # Stricter validation: quantities are typically smaller (1-999)
                                     if 1 <= qty_val <= 999:
                                         current_item['quantity'] = int(qty_val)
-                                        print(f"  Found quantity from table format (after HSN): {qty_val}")
-                                        break
+                                        print(f"  ✓ Accepted quantity from table format: {qty_val}")
+                                    else:
+                                        print(f"  ✗ Rejected quantity from table format (out of range): {qty_val}")
+                                    break
                                 except ValueError:
+                                    print(f"  ✗ Failed to parse number from table format: {parts[i + 1]}")
                                     pass
                 else:
                     print(f"  No quantity match in this line")
