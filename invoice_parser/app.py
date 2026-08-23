@@ -532,11 +532,17 @@ class InvoiceParser:
                             text = word['text'].strip()
                             
                             # Description column - collect all words EXCEPT serial numbers
-                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 100:
+                            # Tighter tolerance to avoid picking up words from other columns
+                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 50:
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     # Skip serial numbers (1, 2, 3, etc.)
                                     if text.replace('.', '').isdigit() and len(text.strip()) <= 3:
                                         print(f"  Skipped serial number in description: {text}")
+                                        continue
+                                    # Skip footer/header keywords
+                                    skip_words = ['Bill', 'Details', 'Ref', 'Days', 'CGST', 'SGST', 'OUTPUT', 'Total', 'Round', 'Off']
+                                    if any(skip_word.lower() in text.lower() for skip_word in skip_words):
+                                        print(f"  Skipped footer word: {text}")
                                         continue
                                     current_item['description_lines'].append(text)
                                     print(f"  Added description word at x={x_pos}: {text}")
