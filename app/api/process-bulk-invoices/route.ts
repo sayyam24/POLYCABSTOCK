@@ -285,6 +285,7 @@ export async function POST(req: Request) {
 
     const pythonData = await pythonResponse.json()
     console.log(`Python service returned ${pythonData.results?.length || 0} results`)
+    console.log('Full Python response:', JSON.stringify(pythonData, null, 2))
     
     if (!pythonData.success || !pythonData.results) {
       throw new Error('Failed to parse PDFs with Python service')
