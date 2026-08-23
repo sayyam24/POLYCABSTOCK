@@ -287,6 +287,18 @@ export async function POST(req: Request) {
     console.log(`Python service returned ${pythonData.results?.length || 0} results`)
     console.log('Full Python response:', JSON.stringify(pythonData, null, 2))
     
+    // Log individual result items to see product_name field
+    if (pythonData.results && pythonData.results.length > 0) {
+        pythonData.results.forEach((result: any, idx: number) => {
+            console.log(`Result ${idx} items:`, JSON.stringify(result.items, null, 2))
+            if (result.items && result.items.length > 0) {
+                result.items.forEach((item: any, itemIdx: number) => {
+                    console.log(`  Item ${itemIdx}:`, JSON.stringify(item, null, 2))
+                })
+            }
+        })
+    }
+    
     if (!pythonData.success || !pythonData.results) {
       throw new Error('Failed to parse PDFs with Python service')
     }
