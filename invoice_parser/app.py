@@ -1036,47 +1036,70 @@ class InvoiceParser:
     
     def match_products(self, items: List[Dict], products: List[Dict]) -> List[Dict]:
         """Match extracted items to product catalog"""
-        product_map = {p['code']: p for p in products if 'code' in p}
-        product_names = {p['name'].lower(): p for p in products if 'name' in p}
+        product_map = {}
+        product_names = {}
+        
+        # Build product maps with fallback handling
+        for p in products:
+            # Use 'code' if available, otherwise use 'id' as fallback
+            code = p.get('code') or p.get('id')
+            if code:
+                product_map[code] = p
+            
+            # Use 'name' if available
+            name = p.get('name')
+            if name:
+                product_names[name.lower()] = p
+        
+        print(f"Built product maps: {len(product_map)} codes, {len(product_names)} names")
         
         for item in items:
             # Try exact code match first
-            if item['product_code'] and item['product_code'] in product_map:
-                product = product_map[item['product_code']]
+            product_code = item.get('product_code')
+            if product_code and product_code in product_map:
+                product = product_map[product_code]
                 item['matched'] = True
-                item['matched_product_id'] = product['id']
-                item['matched_product_name'] = product['name']
+                item['matched_product_id'] = product.get('id')
+                item['matched_product_name'] = product.get('name')
                 item['match_type'] = 'code'
                 item['confidence'] = 1.0
+                print(f"Matched by code: {product_code} -> {product.get('name')}")
                 continue
             
             # Try exact name match
-            product_name_lower = item['product_name'].lower()
+            product_name_lower = item.get('product_name', '').lower()
             if product_name_lower in product_names:
                 product = product_names[product_name_lower]
                 item['matched'] = True
-                item['matched_product_id'] = product['id']
-                item['matched_product_name'] = product['name']
+                item['matched_product_id'] = product.get('id')
+                item['matched_product_name'] = product.get('name')
                 item['match_type'] = 'exact_name'
                 item['confidence'] = 1.0
+                print(f"Matched by exact name: {item.get('product_name')} -> {product.get('name')}")
                 continue
             
             # Try fuzzy matching with RapidFuzz
-            catalog_names = [p['name'] for p in products if 'name' in p]
-            match_result = process.extractOne(item['product_name'], catalog_names, scorer=fuzz.WRatio)
+            catalog_names = [p.get('name', '') for p in products if p.get('name')]
+            if catalog_names:
+                match_result = process.extractOne(item.get('product_name', ''), catalog_names, scorer=fuzz.WRatio)
+                
+                if match_result and match_result[1] >= 85:  # 85% confidence threshold
+                    matched_name = match_result[0]
+                    product = next((p for p in products if p.get('name') == matched_name), None)
+                    if product:
+                        item['matched'] = True
+                        item['matched_product_id'] = product.get('id')
+                        item['matched_product_name'] = product.get('name')
+                        item['match_type'] = 'fuzzy'
+                        item['confidence'] = match_result[1] / 100
+                        print(f"Matched by fuzzy: {item.get('product_name')} -> {matched_name} ({match_result[1]}%)")
+                        continue
             
-            if match_result and match_result[1] >= 85:  # 85% confidence threshold
-                matched_name = match_result[0]
-                product = next(p for p in products if p['name'] == matched_name)
-                item['matched'] = True
-                item['matched_product_id'] = product['id']
-                item['matched_product_name'] = product['name']
-                item['match_type'] = 'fuzzy'
-                item['confidence'] = match_result[1] / 100
-            else:
-                item['matched'] = False
-                item['match_type'] = 'manual_review'
-                item['confidence'] = 0.0
+            # No match found
+            item['matched'] = False
+            item['match_type'] = 'manual_review'
+            item['confidence'] = 0.0
+            print(f"No match found for: {item.get('product_name')}")
         
         return items
 
