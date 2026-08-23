@@ -381,14 +381,14 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
                       {progress.parsedData && progress.status === 'success' && (
                         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                           <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                            Parsed Invoice Data:
+                            Parsed Items:
                           </p>
                           <div className="text-xs space-y-1">
                             {progress.parsedData.items && progress.parsedData.items.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {progress.parsedData.items.map((item: any, i: number) => (
                                   <p key={i} className="text-blue-800 dark:text-blue-200">
-                                    • {item.productName || item.product_name} - Qty: {item.quantity}
+                                    • {item.productName || item.product_name || 'Unknown'} - Qty: {item.quantity}
                                   </p>
                                 ))}
                               </div>
