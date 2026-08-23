@@ -195,13 +195,12 @@ export async function POST(req: Request) {
       if (orgIdValue) orgId = orgIdValue
       
       // Convert File objects to base64 for batch record (legacy compatibility)
-      pdfFiles = await Promise.all(
+      // Use Buffer instead of FileReader for server-side compatibility
+      const pdfFiles = await Promise.all(
         rawFiles.map(async (file) => {
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target?.result as string)
-            reader.readAsDataURL(file)
-          })
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+          return `data:application/pdf;base64,${buffer.toString('base64')}`
         })
       )
     } else {
