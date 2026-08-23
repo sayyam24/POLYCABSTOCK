@@ -316,12 +316,20 @@ export async function POST(req: Request) {
         }
         
         // Transform Python response to our format
+        console.log('Python result items:', JSON.stringify(result.items, null, 2))
         const parsedData = {
           invoiceNumber: result.invoice_number,
           invoiceDate: result.invoice_date,
           retailerName: result.retailer_name,
-          items: result.items || []
+          items: (result.items || []).map((item: any) => ({
+            ...item,
+            productName: item.product_name || item.productName || '',
+            productCode: item.product_code || item.productCode || '',
+            matchedProductId: item.matched_product_id || item.matchedProductId || '',
+            matchedProductName: item.matched_product_name || item.matchedProductName || ''
+          }))
         }
+        console.log('Transformed parsedData items:', JSON.stringify(parsedData.items, null, 2))
 
         // Check for unmatched items
         const unmatchedItems = result.items.filter((item: any) => !item.matched || item.match_type === 'manual_review')
