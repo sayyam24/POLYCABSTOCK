@@ -509,6 +509,24 @@ class InvoiceParser:
                     if serial_word:
                         # New row - save previous item with validation
                         if current_item:
+                            # Combine description lines preserving order
+                            current_item['product_name'] = ' '.join(current_item['description_lines']).strip()
+                            
+                            # Fallback: if product_name is empty, try to extract from any collected words
+                            if not current_item.get('product_name') or len(current_item['product_name'].strip()) <= 3:
+                                # Try to use any description words we collected
+                                if current_item.get('debug_description'):
+                                    fallback_name = ' '.join(current_item['debug_description']).strip()
+                                    if len(fallback_name) > 3:
+                                        current_item['product_name'] = fallback_name
+                                        print(f"Using fallback product name from debug_description: {fallback_name}")
+                                # Try fallback_description if debug_description didn't work
+                                elif current_item.get('fallback_description'):
+                                    fallback_name = ' '.join(current_item['fallback_description']).strip()
+                                    if len(fallback_name) > 3:
+                                        current_item['product_name'] = fallback_name
+                                        print(f"Using fallback product name from fallback_description: {fallback_name}")
+                            
                             # Strict validation before saving
                             if (current_item.get('product_name') and 
                                 len(current_item['product_name'].strip()) > 3 and
@@ -570,6 +588,16 @@ class InvoiceParser:
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     current_item['description_lines'].append(text)
                                     current_item['debug_description'].append(text)
+                                    print(f"  Added description word: '{text}' at x={x_pos}")
+                            
+                            # Also capture words in a broader range for fallback
+                            elif not col_positions.get('description') or abs(x_pos - col_positions['description']) < 100:
+                                if text and len(text) > 2 and not text.replace('.', '').isdigit():
+                                    # This might be a description word outside the strict column
+                                    if not current_item.get('fallback_description'):
+                                        current_item['fallback_description'] = []
+                                    current_item['fallback_description'].append(text)
+                                    print(f"  Added fallback description word: '{text}' at x={x_pos}")
                             
                             # HSN column
                             elif col_positions.get('hsn') and abs(x_pos - col_positions['hsn']) < 30:
@@ -613,6 +641,21 @@ class InvoiceParser:
                     # Combine description lines preserving order
                     current_item['product_name'] = ' '.join(current_item['description_lines']).strip()
                     
+                    # Fallback: if product_name is empty, try to extract from any collected words
+                    if not current_item.get('product_name') or len(current_item['product_name'].strip()) <= 3:
+                        # Try to use any description words we collected
+                        if current_item.get('debug_description'):
+                            fallback_name = ' '.join(current_item['debug_description']).strip()
+                            if len(fallback_name) > 3:
+                                current_item['product_name'] = fallback_name
+                                print(f"Using fallback product name from debug_description: {fallback_name}")
+                        # Try fallback_description if debug_description didn't work
+                        elif current_item.get('fallback_description'):
+                            fallback_name = ' '.join(current_item['fallback_description']).strip()
+                            if len(fallback_name) > 3:
+                                current_item['product_name'] = fallback_name
+                                print(f"Using fallback product name from fallback_description: {fallback_name}")
+                    
                     # Strict validation
                     if (current_item.get('product_name') and 
                         len(current_item['product_name'].strip()) > 3 and
@@ -653,7 +696,7 @@ class InvoiceParser:
                     # Remove extra whitespace
                     item['product_name'] = re.sub(r'\s+', ' ', item['product_name']).strip()
                 
-                # Remove temporary/debug keys
+                # Remove temporary/debug keys (but keep fallback_description for debugging)
                 for key in ['description_lines', 'debug_description', 'debug_hsn', 'debug_quantity', 'debug_rate', 'debug_amount']:
                     if key in item:
                         del item[key]
