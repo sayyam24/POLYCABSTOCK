@@ -35,6 +35,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // Check for duplicate invoice number
+    const existingShipment = state.shipments.find(
+      (s) => s.invoiceNumber?.toUpperCase() === invoiceNumber?.toUpperCase() && s.senderOrgId === senderOrgId
+    )
+    
+    if (existingShipment) {
+      return NextResponse.json(
+        { error: `Invoice number ${invoiceNumber} already exists. Please use a different invoice number.` },
+        { status: 409 },
+      )
+    }
+
     const shipment = {
       id: `ship_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       shipmentNumber: invoiceNumber || `INV-${Date.now()}`,

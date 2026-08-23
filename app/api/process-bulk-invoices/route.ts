@@ -223,7 +223,25 @@ export async function POST(req: Request) {
       )
     }
 
-    // Convert products to full Product format
+    // Check for duplicate invoice numbers in existing shipments
+    const state = await loadServerState()
+    const existingInvoiceNumbers = new Set(
+      state.shipments
+        .filter(s => s.senderOrgId === orgId)
+        .map(s => s.invoiceNumber?.toUpperCase())
+        .filter(Boolean)
+    )
+    
+    // Check for duplicates in transaction history as well
+    const txInvoiceNumbers = new Set(
+      state.transactionHistory
+        .filter(tx => tx.senderOrgId === orgId)
+        .map(tx => tx.invoiceNumber?.toUpperCase())
+        .filter(Boolean)
+    )
+    
+    // Combine both sets
+    existingInvoiceNumbers.forEach(num => txInvoiceNumbers.add(num))
     const fullProducts: Product[] = products.map(p => ({
       id: p.id,
       name: p.name,
@@ -284,6 +302,19 @@ export async function POST(req: Request) {
       console.log('Items:', result.items)
       
       try {
+        // Check for duplicate invoice number
+        const invoiceNum = result.invoice_number?.toUpperCase()
+        if (invoiceNum && existingInvoiceNumbers.has(invoiceNum)) {
+          console.log(`Duplicate invoice detected: ${invoiceNum}`)
+          results.push({
+            fileName: `invoice_${index + 1}.pdf`,
+            success: false,
+            error: `Invoice number ${result.invoice_number} already exists`
+          })
+          errors.push(`Invoice number ${result.invoice_number} already exists`)
+          continue
+        }
+        
         // Transform Python response to our format
         const parsedData = {
           invoiceNumber: result.invoice_number,

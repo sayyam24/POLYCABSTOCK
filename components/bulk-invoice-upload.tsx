@@ -15,6 +15,7 @@ interface UploadProgress {
   status: 'pending' | 'processing' | 'success' | 'error'
   progress: number
   error?: string
+  parsedData?: any
 }
 
 interface BulkInvoiceUploadProps {
@@ -106,24 +107,6 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
 
     setIsUploading(true)
     
-    // Get existing invoices from state for duplicate detection
-    const stateRes = await fetch('/api/state')
-    const stateData = await stateRes.json()
-    const existingInvoices = stateData.invoices || []
-    const existingInvoiceNumbers = new Set(
-      existingInvoices.map((inv: any) => inv.invoice_number?.toUpperCase()).filter(Boolean)
-    )
-    
-    // Also check against transaction history for uploaded invoice numbers
-    const existingTxInvoiceNumbers = new Set(
-      (stateData.transactionHistory || [])
-        .map((tx: any) => tx.invoiceNumber?.toUpperCase())
-        .filter(Boolean)
-    )
-    
-    // Combine both sets
-    existingInvoiceNumbers.forEach(num => existingTxInvoiceNumbers.add(num))
-    
     // Get products from state
     const productsRes = await fetch('/api/state')
     const productsData = await productsRes.json()
@@ -149,26 +132,6 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
       const data = await response.json()
       console.log('API Response:', data) // Debug log
 
-      // Check for duplicate invoice numbers
-      const duplicateInvoices: string[] = []
-      data.results?.forEach((result: any) => {
-        if (result.invoice_number) {
-          const invoiceNum = result.invoice_number.toUpperCase()
-          if (existingTxInvoiceNumbers.has(invoiceNum)) {
-            duplicateInvoices.push(invoiceNum)
-          }
-        }
-      })
-
-      if (duplicateInvoices.length > 0) {
-        toast.error('Duplicate invoices detected', {
-          description: `The following invoice numbers already exist: ${duplicateInvoices.join(', ')}`,
-          duration: 5000,
-        })
-        setIsUploading(false)
-        return
-      }
-
       // Update progress based on results
       const updatedProgress = uploadProgress.map((progress, index) => {
         const result = data.results?.[index] // Use index instead of finding by index property
@@ -177,14 +140,14 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
             ...progress,
             status: result.success ? 'success' : 'error',
             progress: 100,
-            error: result.error
+            error: result.error,
+            parsedData: result.invoice_data
           } as UploadProgress
         }
         return progress
       })
 
       setUploadProgress(updatedProgress)
-      onUploadComplete(data.results || [])
       
       // Show professional toast notification with detailed breakdown
       if (data.summary) {
@@ -402,7 +365,7 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
                 {uploadProgress.map((progress) => (
                   <div
                     key={progress.index}
-                    className="flex items-center gap-4 p-4 rounded-2xl border border-border/50 bg-card/50 hover:bg-card transition-all duration-200"
+                    className="flex items-start gap-4 p-4 rounded-2xl border border-border/50 bg-card/50 hover:bg-card transition-all duration-200"
                   >
                     <div className="flex-shrink-0">
                       {getStatusIcon(progress.status)}
@@ -414,6 +377,41 @@ export function BulkInvoiceUpload({ onUploadComplete, maxFiles = 100 }: BulkInvo
                       )}
                       {progress.error && (
                         <p className="text-xs text-red-500 mt-2">{progress.error}</p>
+                      )}
+                      {progress.parsedData && progress.status === 'success' && (
+                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                            Parsed Invoice Data:
+                          </p>
+                          <div className="text-xs space-y-1">
+                            <p className="text-blue-800 dark:text-blue-200">
+                              Invoice: {progress.parsedData.invoice_number}
+                            </p>
+                            <p className="text-blue-800 dark:text-blue-200">
+                              Date: {progress.parsedData.invoice_date}
+                            </p>
+                            <p className="text-blue-800 dark:text-blue-200">
+                              Retailer: {progress.parsedData.retailer_name}
+                            </p>
+                            <p className="text-blue-800 dark:text-blue-200">
+                              Items: {progress.parsedData.items?.length || 0}
+                            </p>
+                            {progress.parsedData.items && progress.parsedData.items.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {progress.parsedData.items.slice(0, 3).map((item: any, i: number) => (
+                                  <p key={i} className="text-blue-700 dark:text-blue-300">
+                                    • {item.productName} - Qty: {item.quantity}
+                                  </p>
+                                ))}
+                                {progress.parsedData.items.length > 3 && (
+                                  <p className="text-blue-600 dark:text-blue-400">
+                                    +{progress.parsedData.items.length - 3} more items
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     {progress.status === 'success' && (
