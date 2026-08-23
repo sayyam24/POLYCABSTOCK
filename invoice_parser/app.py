@@ -528,9 +528,13 @@ class InvoiceParser:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column - collect all words
+                            # Description column - collect all words EXCEPT serial numbers
                             if col_positions.get('description') and abs(x_pos - col_positions['description']) < 100:
                                 if text and text not in ['Description', 'Goods', 'of']:
+                                    # Skip serial numbers (1, 2, 3, etc.)
+                                    if text.replace('.', '').isdigit() and len(text.strip()) <= 3:
+                                        print(f"  Skipped serial number in description: {text}")
+                                        continue
                                     current_item['description_lines'].append(text)
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
