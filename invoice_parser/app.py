@@ -368,17 +368,18 @@ class InvoiceParser:
             result['invoice_date'] = self.extract_invoice_date(text)
             result['retailer_name'] = self.extract_retailer_name(text)
             
-            # Use coordinate-based extraction (more accurate for column identification)
-            print("Attempting coordinate-based extraction...")
-            items = self.extract_items_from_pdf_coordinates(pdf_bytes)
+            # Use text-based extraction (more reliable for this invoice format)
+            print("Attempting text-based extraction...")
+            items = self.extract_items_from_text(text)
+            result['extraction_method'] = f'{extraction_method}_text_based'
+            
             if not items:
-                # Fallback to text-based extraction if coordinate extraction fails
-                print("Coordinate extraction returned no items, falling back to text-based extraction")
-                items = self.extract_items_from_text(text)
-                result['extraction_method'] = f'{extraction_method}_text_based'
-            else:
-                print(f"Coordinate extraction successful, found {len(items)} items")
+                # Fallback to coordinate-based extraction if text extraction fails
+                print("Text extraction returned no items, falling back to coordinate-based extraction")
+                items = self.extract_items_from_pdf_coordinates(pdf_bytes)
                 result['extraction_method'] = f'{extraction_method}_coordinate_based'
+            else:
+                print(f"Text extraction successful, found {len(items)} items")
             result['items'] = items
             
             # Match products
