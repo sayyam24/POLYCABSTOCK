@@ -230,12 +230,12 @@ export default function AdminStockPage() {
               </div>
               <Select value={orgFilter} onValueChange={setOrgFilter}>
                 <SelectTrigger className="h-12 w-[280px] border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20">
-                  <SelectValue placeholder="Filter by Organization" />
+                  <SelectValue placeholder="Filter by Distributor/Sub-Distributor" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Organizations</SelectItem>
-                  {organizations.map(org => (
-                    <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                  {organizations.filter(org => org.type === 'distributor' || org.type === 'sub_distributor').map(org => (
+                    <SelectItem key={org.id} value={org.id}>{org.name} ({org.type.replace('_', ' ')})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
