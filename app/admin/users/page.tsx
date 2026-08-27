@@ -270,7 +270,7 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8 max-w-[1600px] mx-auto px-4">
+      <div className="space-y-8 px-4 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

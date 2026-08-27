@@ -43,7 +43,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await logout()
-    router.push('/login')
+    router.push('/')
   }
 
   // Redirect non-admin users
