@@ -24,6 +24,7 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'salesman',
     distributorId: '',
     location: '',
@@ -35,13 +36,38 @@ export default function AdminUsersPage() {
 
   const loadData = async () => {
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const session = JSON.parse(localStorage.getItem('session') || '{}')
+      if (session.userId) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
       const [usersRes, orgsRes] = await Promise.all([
-        fetch('/api/admin/users'),
-        fetch('/api/admin/organizations'),
+        fetch('/api/admin/users', { headers }),
+        fetch('/api/admin/organizations', { headers }),
       ])
       
-      if (usersRes.ok) setUsers(await usersRes.json())
-      if (orgsRes.ok) setOrganizations(await orgsRes.json())
+      console.log('Users API response status:', usersRes.status)
+      console.log('Organizations API response status:', orgsRes.status)
+      
+      if (usersRes.ok) {
+        const usersData = await usersRes.json()
+        console.log('Users data:', usersData)
+        setUsers(usersData)
+      } else {
+        console.error('Users API error:', await usersRes.text())
+      }
+      if (orgsRes.ok) {
+        const orgsData = await orgsRes.json()
+        console.log('Organizations data:', orgsData)
+        setOrganizations(orgsData)
+      } else {
+        console.error('Organizations API error:', await orgsRes.text())
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {
@@ -72,7 +98,7 @@ export default function AdminUsersPage() {
   }
 
   const createUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.role) {
+    if (!newUser.name || !newUser.email || !newUser.role || !newUser.password) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -95,6 +121,7 @@ export default function AdminUsersPage() {
         setNewUser({
           name: '',
           email: '',
+          password: '',
           role: 'salesman',
           distributorId: '',
           location: '',
@@ -260,6 +287,16 @@ export default function AdminUsersPage() {
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                     placeholder="john@example.com"
+                    className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">Password</Label>
+                  <Input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Enter password"
                     className="h-11 border-border/50 focus:border-indigo-500 focus:ring-indigo-500/20"
                   />
                 </div>

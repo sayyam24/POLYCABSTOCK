@@ -35,11 +35,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, email, role, distributorId, location } = body
+    const { name, email, password, role, distributorId, location } = body
 
-    if (!name || !email || !role) {
+    if (!name || !email || !role || !password) {
       return NextResponse.json(
-        { error: 'Name, email, and role are required' },
+        { error: 'Name, email, password, and role are required' },
         { status: 400 }
       )
     }
@@ -84,11 +84,12 @@ export async function POST(request: Request) {
       state.organizations.push(newOrg)
     }
 
-    // Create user
+    // Create user with password
     const userId = firestoreId('user')
     const newUser = {
       id: userId,
       email: email.toLowerCase(),
+      password: password, // In production, this should be hashed
       name: name.trim(),
       role: role,
       status: 'active' as const,
