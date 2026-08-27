@@ -103,6 +103,20 @@ function findLocalUserByEmail(
   return user ? userToSession(user) : null
 }
 
+function verifyPasswordFromServerState(email: string, password: string): boolean {
+  const db = loadDatabase()
+  const user = db.users.find(
+    (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+  )
+  if (!user || !user.password) {
+    console.log('verifyPasswordFromServerState: user not found or no password')
+    return false
+  }
+  const isValid = user.password === password
+  console.log('verifyPasswordFromServerState:', { email, isValid })
+  return isValid
+}
+
 async function resolveSessionFromFirebaseUser(
   firebaseUser: FirebaseUser,
   expectedRole?: UserRole,
@@ -227,9 +241,8 @@ async function loginWithMongoDB(
       }
     }
 
-    // Verify password using local credentials
-    const { verifyLocalCredential } = await import('@/lib/db/local-credentials')
-    if (!verifyLocalCredential(normalizedEmail, password)) {
+    // Verify password using server state (user.password field)
+    if (!user.password || user.password !== password) {
       return { success: false, error: 'Invalid email or password' }
     }
 
@@ -281,7 +294,7 @@ export async function login(
   const localSession = findLocalUserByEmail(normalizedEmail, expectedRole)
   if (localSession) {
     console.log('login: found user in local database')
-    if (verifyLocalCredential(normalizedEmail, password)) {
+    if (verifyPasswordFromServerState(normalizedEmail, password)) {
       console.log('login: credentials verified')
       setSession(localSession)
       return { success: true, session: localSession }

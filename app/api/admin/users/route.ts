@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { loadServerState, saveServerState } from '@/lib/db/server-state'
 import { requireAdminAuth } from '@/lib/auth/admin-auth'
 import { firestoreId, isoNow } from '@/lib/firebase/utils'
-import { setLocalCredential } from '@/lib/db/local-credentials'
 
 export async function GET(request: Request) {
   const session = {
@@ -105,9 +104,6 @@ export async function POST(request: Request) {
 
     state.users.push(newUser)
     await saveServerState(state)
-
-    // Store credential in local credentials for login verification
-    setLocalCredential(email.toLowerCase(), password)
 
     return NextResponse.json({ success: true, user: newUser })
   } catch (error) {
