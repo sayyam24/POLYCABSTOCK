@@ -12,8 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Search, UserCheck, UserX, Building2, Plus, Users, Shield, MapPin, Filter, Sparkles, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useAuth } from '@/components/auth-provider'
 
 export default function AdminUsersPage() {
+  const { session } = useAuth()
   const [users, setUsers] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,8 +39,8 @@ export default function AdminUsersPage() {
   const loadData = async () => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const session = JSON.parse(localStorage.getItem('session') || '{}')
-      if (session.userId) {
+      
+      if (session) {
         headers['x-user-id'] = session.userId
         headers['x-user-role'] = session.role
         headers['x-org-id'] = session.orgId
@@ -79,9 +81,19 @@ export default function AdminUsersPage() {
     const newStatus = currentStatus === 'active' || currentStatus === 'approved' ? 'inactive' : 'active'
     
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      
+      if (session) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
       const res = await fetch(`/api/admin/users/${userId}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ status: newStatus }),
       })
 
@@ -109,9 +121,19 @@ export default function AdminUsersPage() {
     }
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      
+      if (session) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
       const res = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(newUser),
       })
 
