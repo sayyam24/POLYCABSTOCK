@@ -373,10 +373,10 @@ export default function AdminUsersPage() {
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shrink-0">
                   <Users className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Users</p>
                   <p className="text-3xl font-bold">{users.length}</p>
                 </div>
@@ -386,10 +386,10 @@ export default function AdminUsersPage() {
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-lg shrink-0">
                   <CheckCircle2 className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active Users</p>
                   <p className="text-3xl font-bold">{users.filter(u => u.status === 'active' || u.status === 'approved').length}</p>
                 </div>
@@ -399,10 +399,10 @@ export default function AdminUsersPage() {
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shrink-0">
                   <Building2 className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Organizations</p>
                   <p className="text-3xl font-bold">{organizations.length}</p>
                 </div>
@@ -412,10 +412,10 @@ export default function AdminUsersPage() {
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg shrink-0">
                   <Shield className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admins</p>
                   <p className="text-3xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
                 </div>
