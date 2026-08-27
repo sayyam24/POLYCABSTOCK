@@ -10,8 +10,10 @@ import { Search, Warehouse, Edit, Download, FileSpreadsheet, Package, TrendingUp
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/components/auth-provider'
 
 export default function AdminStockPage() {
+  const { session } = useAuth()
   const [stock, setStock] = useState<any[]>([])
   const [ledger, setLedger] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
@@ -26,11 +28,25 @@ export default function AdminStockPage() {
 
   const loadData = async () => {
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      
+      if (session) {
+        headers['x-user-id'] = session.userId
+        headers['x-user-role'] = session.role
+        headers['x-org-id'] = session.orgId
+        headers['x-user-email'] = session.email
+        headers['x-user-name'] = session.name
+      }
+      
       const [stockRes, ledgerRes, orgsRes] = await Promise.all([
-        fetch('/api/admin/stock'),
-        fetch('/api/admin/stock-ledger'),
-        fetch('/api/admin/organizations'),
+        fetch('/api/admin/stock', { headers }),
+        fetch('/api/admin/stock-ledger', { headers }),
+        fetch('/api/admin/organizations', { headers }),
       ])
+      
+      console.log('Stock API response status:', stockRes.status)
+      console.log('Ledger API response status:', ledgerRes.status)
+      console.log('Organizations API response status:', orgsRes.status)
       
       if (stockRes.ok) setStock(await stockRes.json())
       if (ledgerRes.ok) setLedger(await ledgerRes.json())
