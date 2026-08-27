@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { getUserByEmail } from '@/lib/mongodb/collections'
 import type { UserRole } from '@/lib/types'
 
-// Simple password verification (for demo purposes - use bcrypt in production)
-function verifyPassword(password: string, hashedPassword: string): boolean {
-  return Buffer.from(password).toString('base64') === hashedPassword
+// Simple password verification (plain text for testing - use bcrypt in production)
+function verifyPassword(password: string, storedPassword: string): boolean {
+  return password === storedPassword
 }
 
 // Only these 2 admin emails are allowed to login
