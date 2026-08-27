@@ -270,7 +270,7 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-[1600px] mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -288,7 +288,7 @@ export default function AdminUsersPage() {
                 Create User
               </Button>
             </DialogTrigger>
-            <DialogContent className="border-border/50 shadow-xl">
+            <DialogContent className="border-border/50 shadow-xl max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">Create New User</DialogTitle>
               </DialogHeader>
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -493,7 +493,7 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
@@ -585,7 +585,7 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="text-left py-4 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
