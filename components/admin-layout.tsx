@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth-provider'
 import { 
   LayoutDashboard, 
@@ -38,7 +38,13 @@ const adminNavItems = [
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { session, logout } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    router.push('/login')
+  }
 
   // Redirect non-admin users
   if (session && session.role !== 'admin') {
@@ -106,7 +112,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 className="w-full justify-start"
-                onClick={logout}
+                onClick={handleLogout}
               >
                 <LogOut className="h-5 w-5 mr-3" />
                 Logout
