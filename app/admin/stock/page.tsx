@@ -34,7 +34,11 @@ export default function AdminStockPage() {
       
       if (stockRes.ok) setStock(await stockRes.json())
       if (ledgerRes.ok) setLedger(await ledgerRes.json())
-      if (orgsRes.ok) setOrganizations(await orgsRes.json())
+      if (orgsRes.ok) {
+        const orgs = await orgsRes.json()
+        console.log('Organizations loaded:', orgs.map((o: any) => ({ id: o.id, name: o.name, type: o.type })))
+        setOrganizations(orgs)
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {
