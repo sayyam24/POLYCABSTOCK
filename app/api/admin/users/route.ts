@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { loadServerState, saveServerState } from '@/lib/db/server-state'
 import { requireAdminAuth } from '@/lib/auth/admin-auth'
 import { firestoreId, isoNow } from '@/lib/firebase/utils'
+import { createUser as createMongoUser } from '@/lib/mongodb/collections'
 
 export async function GET(request: Request) {
   const session = {
@@ -102,8 +103,22 @@ export async function POST(request: Request) {
       updatedAt: isoNow(),
     }
 
-    state.users.push(newUser)
-    await saveServerState(state)
+    // Save to MongoDB if backend is configured
+    if (process.env.NEXT_PUBLIC_DATA_BACKEND === 'mongo') {
+      try {
+        await createMongoUser(newUser)
+        console.log('User created in MongoDB:', newUser.email)
+      } catch (mongoError) {
+        console.error('Failed to create user in MongoDB:', mongoError)
+        // Fallback to server state if MongoDB fails
+        state.users.push(newUser)
+        await saveServerState(state)
+      }
+    } else {
+      // Save to server state for local database mode
+      state.users.push(newUser)
+      await saveServerState(state)
+    }
 
     return NextResponse.json({ success: true, user: newUser })
   } catch (error) {
