@@ -831,26 +831,43 @@ class InvoiceParser:
                 
                 # Always try table format: HSN QUANTITY NOS PRICE NOS TOTAL
                 # Match the 2nd number after HSN (8 digits)
+                # IMPROVED: Better detection of quantity vs price columns
                 parts = line.split()
                 if len(parts) >= 5:
-                    # Look for pattern: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
+                    # Look for pattern: HSN(8digits) RATE QUANTITY NOS PRICE TOTAL
+                    # Or: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
                     for i, part in enumerate(parts):
                         if re.match(r'^\d{8}$', part):
-                            # Found HSN, next number should be quantity
-                            if i + 1 < len(parts) and re.match(r'^\d+\.?\d*$', parts[i + 1]):
-                                try:
-                                    qty_val = float(parts[i + 1])
-                                    print(f"  Found number {qty_val} after HSN in table format")
-                                    # Stricter validation: quantities are typically smaller (1-999)
-                                    if 1 <= qty_val <= 999:
-                                        current_item['quantity'] = int(qty_val)
-                                        print(f"  ✓ Accepted quantity from table format: {qty_val}")
-                                    else:
-                                        print(f"  ✗ Rejected quantity from table format (out of range): {qty_val}")
-                                    break
-                                except ValueError:
-                                    print(f"  ✗ Failed to parse number from table format: {parts[i + 1]}")
-                                    pass
+                            # Found HSN, look for quantity in subsequent parts
+                            # Skip the first number after HSN (likely RATE)
+                            # Look for the number that has NOS indicator or is smaller
+                            for j in range(i + 1, min(i + 4, len(parts))):
+                                if re.match(r'^\d+\.?\d*$', parts[j]):
+                                    try:
+                                        qty_val = float(parts[j])
+                                        print(f"  Found number {qty_val} after HSN at position {j}")
+                                        # Check if this part has NOS indicator nearby
+                                        has_nos = (j + 1 < len(parts) and 'NOS' in parts[j + 1].upper())
+                                        # Or if previous part was NOS
+                                        prev_nos = (j > 0 and 'NOS' in parts[j - 1].upper())
+                                        
+                                        # Stricter validation: quantities are typically smaller (1-999)
+                                        # Prefer numbers with NOS indicator
+                                        if 1 <= qty_val <= 999 and (has_nos or prev_nos):
+                                            current_item['quantity'] = int(qty_val)
+                                            print(f"  ✓ Accepted quantity from table format with NOS: {qty_val}")
+                                            break
+                                        elif 1 <= qty_val <= 999 and not current_item.get('quantity'):
+                                            # Only accept if we haven't found a quantity yet
+                                            current_item['quantity'] = int(qty_val)
+                                            print(f"  ✓ Accepted quantity from table format (no NOS): {qty_val}")
+                                            break
+                                        else:
+                                            print(f"  ✗ Rejected number from table format (out of range or no NOS): {qty_val}")
+                                    except ValueError:
+                                        print(f"  ✗ Failed to parse number from table format: {parts[j]}")
+                                        pass
+                            break
                 else:
                     print(f"  No quantity match in this line")
                 
