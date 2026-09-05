@@ -818,11 +818,11 @@ class InvoiceParser:
                 if qty_match:
                     try:
                         qty_val = float(qty_match.group(1))
-                        print(f"  Found number {qty_val} with NOS/PCS indicator")
+                        print(f"  Found number {qty_val} with NOS/PCS/× indicator via regex")
                         # Stricter validation: quantities are typically smaller (1-999)
                         if 1 <= qty_val <= 999:
                             current_item['quantity'] = int(qty_val)
-                            print(f"  ✓ Accepted quantity: {qty_val}")
+                            print(f"  ✓ Accepted quantity from regex: {qty_val}")
                         else:
                             print(f"  ✗ Rejected quantity (out of range): {qty_val}")
                     except ValueError:
@@ -832,41 +832,64 @@ class InvoiceParser:
                 # Always try table format: HSN QUANTITY NOS PRICE NOS TOTAL
                 # Match the 2nd number after HSN (8 digits)
                 # IMPROVED: Better detection of quantity vs price columns
+                # Look for pattern: HSN RATE QUANTITY NOS PRICE TOTAL or similar
                 parts = line.split()
+                print(f"  DEBUG: Line parts: {parts}")
                 if len(parts) >= 5:
-                    # Look for pattern: HSN(8digits) RATE QUANTITY NOS PRICE TOTAL
-                    # Or: HSN(8digits) QUANTITY NOS PRICE NOS TOTAL
+                    # Look for pattern: HSN(8digits) followed by numbers
                     for i, part in enumerate(parts):
                         if re.match(r'^\d{8}$', part):
-                            # Found HSN, look for quantity in subsequent parts
-                            # Skip the first number after HSN (likely RATE)
-                            # Look for the number that has NOS indicator or is smaller
-                            for j in range(i + 1, min(i + 4, len(parts))):
+                            # Found HSN, analyze the next few parts to find quantity
+                            # Typical patterns:
+                            # HSN RATE QUANTITY NOS PRICE TOTAL
+                            # HSN QUANTITY NOS PRICE NOS TOTAL
+                            # HSN QUANTITY PRICE NOS TOTAL
+                            print(f"  Found HSN at position {i}, analyzing next parts")
+                            
+                            # Look at the next 5 parts after HSN
+                            candidates = []
+                            for j in range(i + 1, min(i + 6, len(parts))):
                                 if re.match(r'^\d+\.?\d*$', parts[j]):
                                     try:
-                                        qty_val = float(parts[j])
-                                        print(f"  Found number {qty_val} after HSN at position {j}")
-                                        # Check if this part has NOS indicator nearby
-                                        has_nos = (j + 1 < len(parts) and 'NOS' in parts[j + 1].upper())
-                                        # Or if previous part was NOS
-                                        prev_nos = (j > 0 and 'NOS' in parts[j - 1].upper())
-                                        
-                                        # Stricter validation: quantities are typically smaller (1-999)
-                                        # Prefer numbers with NOS indicator
-                                        if 1 <= qty_val <= 999 and (has_nos or prev_nos):
-                                            current_item['quantity'] = int(qty_val)
-                                            print(f"  ✓ Accepted quantity from table format with NOS: {qty_val}")
-                                            break
-                                        elif 1 <= qty_val <= 999 and not current_item.get('quantity'):
-                                            # Only accept if we haven't found a quantity yet
-                                            current_item['quantity'] = int(qty_val)
-                                            print(f"  ✓ Accepted quantity from table format (no NOS): {qty_val}")
-                                            break
-                                        else:
-                                            print(f"  ✗ Rejected number from table format (out of range or no NOS): {qty_val}")
+                                        val = float(parts[j])
+                                        # Check if this part has NOS indicator
+                                        has_nos_after = (j + 1 < len(parts) and 'NOS' in parts[j + 1].upper())
+                                        has_nos_before = (j > 0 and 'NOS' in parts[j - 1].upper())
+                                        candidates.append({
+                                            'index': j,
+                                            'value': val,
+                                            'has_nos': has_nos_after or has_nos_before,
+                                            'text': parts[j]
+                                        })
+                                        print(f"    Candidate {j}: value={val}, has_nos={has_nos_after or has_nos_before}")
                                     except ValueError:
-                                        print(f"  ✗ Failed to parse number from table format: {parts[j]}")
                                         pass
+                            
+                            print(f"  Found {len(candidates)} numeric candidates after HSN")
+                            
+                            # Select the best candidate for quantity
+                            # Prefer: (1) numbers with NOS indicator, (2) smaller numbers (1-999)
+                            best_candidate = None
+                            for candidate in candidates:
+                                if candidate['has_nos'] and 1 <= candidate['value'] <= 999:
+                                    best_candidate = candidate
+                                    print(f"  ✓ Selected candidate with NOS: {candidate['value']}")
+                                    break
+                            
+                            if not best_candidate:
+                                # Try without NOS indicator, pick the smallest reasonable number
+                                for candidate in candidates:
+                                    if 1 <= candidate['value'] <= 999:
+                                        if not best_candidate or candidate['value'] < best_candidate['value']:
+                                            best_candidate = candidate
+                                if best_candidate:
+                                    print(f"  ✓ Selected candidate without NOS (smallest): {best_candidate['value']}")
+                            
+                            if best_candidate:
+                                current_item['quantity'] = int(best_candidate['value'])
+                                print(f"  ✓ Final accepted quantity: {best_candidate['value']}")
+                            else:
+                                print(f"  ✗ No suitable quantity candidate found")
                             break
                 else:
                     print(f"  No quantity match in this line")
