@@ -601,11 +601,13 @@ class InvoiceParser:
                 # Calculate description column end boundary (strict - before HSN/SAC)
                 description_end_x = None
                 if col_positions.get('hsn'):
-                    description_end_x = col_positions['hsn'] - 10  # Stop 10px before HSN column
+                    description_end_x = col_positions['hsn']  # Use HSN column as boundary
                 elif col_positions.get('quantity'):
-                    description_end_x = col_positions['quantity'] - 10  # Stop 10px before Quantity column
+                    description_end_x = col_positions['quantity']  # Use Quantity column as boundary
                 elif col_positions.get('rate'):
-                    description_end_x = col_positions['rate'] - 10  # Stop 10px before Rate column
+                    description_end_x = col_positions['rate']  # Use Rate column as boundary
+                
+                print(f"Description column: start={col_positions.get('description')}, end={description_end_x}")
                 
                 # Find Total row (end of product table)
                 total_y = None
@@ -668,11 +670,13 @@ class InvoiceParser:
                             # Description column - collect all words before next column
                             if col_positions.get('description') and x_pos >= col_positions['description']:
                                 if description_end_x and x_pos >= description_end_x:
+                                    print(f"  Word '{text}' at x={x_pos} is beyond description_end_x={description_end_x}, skipping")
                                     continue
                                 
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     # Skip serial numbers
                                     if text.replace('.', '').isdigit() and len(text.strip()) <= 3 and x_pos < col_positions.get('description', 100):
+                                        print(f"  Skipped serial number: {text}")
                                         continue
                                     # Skip HSN codes (8-digit numbers)
                                     if re.match(r'^\d{8}$', text):
@@ -681,12 +685,14 @@ class InvoiceParser:
                                     # Skip footer keywords
                                     skip_words = ['Bill', 'Details', 'Ref', 'Days', 'CGST', 'SGST', 'OUTPUT', 'Total', 'Round', 'Off', 'NOS', 'PCS']
                                     if any(skip_word.lower() in text.lower() for skip_word in skip_words):
+                                        print(f"  Skipped footer word: {text}")
                                         continue
                                     current_product['description_words'].append({
                                         'text': text,
                                         'x': x_pos,
                                         'y': word['y0']
                                     })
+                                    print(f"  Added description word: {text} at x={x_pos}, y={word['y0']}")
                 
                 # Save last product
                 if current_product:
