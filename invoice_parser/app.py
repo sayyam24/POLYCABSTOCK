@@ -478,8 +478,25 @@ class InvoiceParser:
                         col_positions['description'] = x_pos
                     elif 'quantity' in text or 'qty' in text:
                         col_positions['quantity'] = x_pos
+                    elif 'hsn' in text or 'sac' in text:
+                        col_positions['hsn'] = x_pos
+                    elif 'rate' in text:
+                        col_positions['rate'] = x_pos
+                    elif 'amount' in text:
+                        col_positions['amount'] = x_pos
                 
                 print(f"Column positions: {col_positions}")
+                
+                # Calculate description column end boundary (before HSN/SAC or Quantity column)
+                description_end_x = None
+                if col_positions.get('hsn'):
+                    description_end_x = col_positions['hsn']
+                elif col_positions.get('quantity'):
+                    description_end_x = col_positions['quantity']
+                elif col_positions.get('rate'):
+                    description_end_x = col_positions['rate']
+                
+                print(f"Description column ends before x={description_end_x}")
                 
                 # Process data rows (after header, before Total)
                 current_item = None
@@ -504,41 +521,44 @@ class InvoiceParser:
                     if serial_word:
                         # Save previous item if exists
                         if current_item:
-                            # Combine description lines
-                            product_name = ' '.join(current_item['description_lines']).strip()
-                            # Clean up product name
-                            product_name = re.sub(r'\s+', ' ', product_name).strip()
-                            
-                            # Only save if we have a product name and quantity
-                            if product_name and current_item.get('quantity'):
-                                items.append({
-                                    'product_name': product_name,
-                                    'quantity': current_item['quantity'],
-                                    'free': current_item.get('free', False)
-                                })
-                                print(f"Saved item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
+                            # Combine description lines in natural reading order
+                            # Sort by y (top-to-bottom) then by x (left-to-right) within each product
+                            if current_item['description_words']:
+                                current_item['description_words'].sort(key=lambda w: (w['y'], w['x']))
+                                product_name = ' '.join([w['text'] for w in current_item['description_words']]).strip()
+                                # Clean up product name
+                                product_name = re.sub(r'\s+', ' ', product_name).strip()
+                                
+                                # Only save if we have a product name and quantity
+                                if product_name and current_item.get('quantity'):
+                                    items.append({
+                                        'product_name': product_name,
+                                        'quantity': current_item['quantity'],
+                                        'free': current_item.get('free', False)
+                                    })
+                                    print(f"Saved item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
                         
                         # Start new item
                         current_item = {
                             'serial': serial_word['text'].strip(),
-                            'description_lines': [],
+                            'description_words': [],
                             'quantity': None,
                             'free': False
                         }
                     
                     # Extract data from columns
                     if current_item:
-                        # Group description words by row (y-coordinate) and sort rows top-to-bottom
-                        # Then sort words left-to-right within each row
-                        # This preserves natural reading order: LEFT→RIGHT and TOP→BOTTOM
-                        
-                        description_words = []
                         for word in row_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column - collect all words
-                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 80:
+                            # Description column - collect all words BEFORE HSN/SAC, Quantity, Rate, Amount
+                            # Use description column position and stop before next column
+                            if col_positions.get('description') and x_pos >= col_positions['description']:
+                                # Stop if we've reached the next column (HSN/SAC, Quantity, Rate, Amount)
+                                if description_end_x and x_pos >= description_end_x:
+                                    continue
+                                
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     # Skip serial numbers (1, 2, 3, etc.) ONLY if they're in the serial column
                                     if text.replace('.', '').isdigit() and len(text.strip()) <= 3 and x_pos < col_positions.get('description', 100):
@@ -549,12 +569,13 @@ class InvoiceParser:
                                     if any(skip_word.lower() in text.lower() for skip_word in skip_words):
                                         print(f"  Skipped footer word: {text}")
                                         continue
-                                    # Collect word with its y-coordinate for row ordering
-                                    description_words.append({
+                                    # Collect word with coordinates for later sorting
+                                    current_item['description_words'].append({
                                         'text': text,
                                         'x': x_pos,
                                         'y': word['y0']
                                     })
+                                    print(f"  Collected description word: {text} at x={x_pos}, y={word['y0']}")
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
                             
@@ -571,27 +592,22 @@ class InvoiceParser:
                                                 print(f"Found quantity: {qty_val}")
                                         except ValueError:
                                             pass
-                        
-                        # Sort description words: first by y (top-to-bottom), then by x (left-to-right)
-                        # This preserves natural reading order
-                        if description_words:
-                            description_words.sort(key=lambda w: (w['y'], w['x']))
-                            for word_data in description_words:
-                                current_item['description_lines'].append(word_data['text'])
-                                print(f"  Added description word in reading order: {word_data['text']}")
                 
                 # Save last item
                 if current_item:
-                    product_name = ' '.join(current_item['description_lines']).strip()
-                    product_name = re.sub(r'\s+', ' ', product_name).strip()
-                    
-                    if product_name and current_item.get('quantity'):
-                        items.append({
-                            'product_name': product_name,
-                            'quantity': current_item['quantity'],
-                            'free': current_item.get('free', False)
-                        })
-                        print(f"Saved last item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
+                    # Combine description lines in natural reading order
+                    if current_item['description_words']:
+                        current_item['description_words'].sort(key=lambda w: (w['y'], w['x']))
+                        product_name = ' '.join([w['text'] for w in current_item['description_words']]).strip()
+                        product_name = re.sub(r'\s+', ' ', product_name).strip()
+                        
+                        if product_name and current_item.get('quantity'):
+                            items.append({
+                                'product_name': product_name,
+                                'quantity': current_item['quantity'],
+                                'free': current_item.get('free', False)
+                            })
+                            print(f"Saved last item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
             
             doc.close()
             
