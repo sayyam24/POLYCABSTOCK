@@ -469,23 +469,53 @@ class InvoiceParser:
                 
                 # Identify column x-positions from header
                 col_positions = {}
+                col_widths = {}
                 for word in header_row:
                     text = word['text'].lower()
                     x_pos = word['x0']
+                    x_end = word['x1']
                     if 'sl' in text or 'no.' in text:
                         col_positions['serial'] = x_pos
+                        col_widths['serial'] = x_end - x_pos
                     elif 'description' in text:
                         col_positions['description'] = x_pos
+                        col_widths['description'] = x_end - x_pos
                     elif 'quantity' in text or 'qty' in text:
                         col_positions['quantity'] = x_pos
+                        col_widths['quantity'] = x_end - x_pos
                     elif 'hsn' in text or 'sac' in text:
                         col_positions['hsn'] = x_pos
+                        col_widths['hsn'] = x_end - x_pos
                     elif 'rate' in text:
                         col_positions['rate'] = x_pos
+                        col_widths['rate'] = x_end - x_pos
                     elif 'amount' in text:
                         col_positions['amount'] = x_pos
+                        col_widths['amount'] = x_end - x_pos
                 
                 print(f"Column positions: {col_positions}")
+                print(f"Column widths: {col_widths}")
+                
+                # Calculate precise column boundaries
+                # Quantity column: from quantity start to next column start (or quantity end + width)
+                quantity_start_x = col_positions.get('quantity')
+                quantity_end_x = None
+                
+                # Find the next column after Quantity to set the boundary
+                next_col_x = None
+                for col_name in ['hsn', 'rate', 'amount', 'sale']:
+                    if col_name in col_positions and col_positions[col_name] > quantity_start_x:
+                        if next_col_x is None or col_positions[col_name] < next_col_x:
+                            next_col_x = col_positions[col_name]
+                
+                if next_col_x:
+                    quantity_end_x = next_col_x
+                elif col_widths.get('quantity'):
+                    quantity_end_x = quantity_start_x + col_widths['quantity'] + 20  # Add some padding
+                else:
+                    quantity_end_x = quantity_start_x + 50  # Default width
+                
+                print(f"Quantity column X-range: {quantity_start_x} to {quantity_end_x}")
                 
                 # Calculate description column end boundary (before HSN/SAC or Quantity column)
                 description_end_x = None
@@ -579,19 +609,22 @@ class InvoiceParser:
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
                             
-                            # Quantity column - extract ONLY from quantity column (UNCHANGED)
-                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 30:
-                                if text:
-                                    # Check if it's a number (quantity)
-                                    qty_match = re.search(r'(\d+\.?\d*)', text)
-                                    if qty_match:
-                                        try:
-                                            qty_val = float(qty_match.group(1))
-                                            if 0 < qty_val < 10000:
-                                                current_item['quantity'] = int(qty_val)
-                                                print(f"Found quantity: {qty_val}")
-                                        except ValueError:
-                                            pass
+                            # Quantity column - extract ONLY from Quantity column X-range
+                            # NO FALLBACK - if not in Quantity column, skip
+                            elif quantity_start_x is not None and quantity_end_x is not None:
+                                if x_pos >= quantity_start_x and x_pos < quantity_end_x:
+                                    if text:
+                                        # Check if it's a number (quantity)
+                                        qty_match = re.search(r'(\d+\.?\d*)', text)
+                                        if qty_match:
+                                            try:
+                                                qty_val = float(qty_match.group(1))
+                                                # Quantities are typically 1-999
+                                                if 1 <= qty_val <= 999:
+                                                    current_item['quantity'] = int(qty_val)
+                                                    print(f"Found quantity {qty_val} in Quantity column (x={x_pos})")
+                                            except ValueError:
+                                                pass
                 
                 # Save last item
                 if current_item:
