@@ -542,31 +542,159 @@ class InvoiceParser:
             # Map quantities to products
             quantity_mappings = map_quantities_to_products(quantities, product_rows)
             
-            # Extract product names using text-based method but use mapped quantities
-            text = extract_text_from_pdf_bytes(pdf_bytes)
-            if not text:
-                print("Could not extract text for product names")
-                return items
-            
-            # Extract product names from text
-            lines = text.split('\n')
+            # Extract product names using coordinate-based approach for complete descriptions
+            # Group words by product rows and collect description words
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             product_names = {}
             
-            for line in lines:
-                line = line.strip()
-                parts = line.split()
-                if parts and parts[0].replace('.', '').replace(',', '').isdigit():
-                    try:
-                        serial_num = int(float(parts[0].replace(',', '')))
-                        if 1 <= serial_num <= 99:
-                            product_name = ' '.join(parts[1:]).strip()
-                            # Clean up product name
-                            product_name = re.sub(r'\(cid:\d+\)', '', product_name).strip()
-                            product_name = re.sub(r'\b\d{8}\b', '', product_name).strip()
-                            product_names[serial_num] = product_name
-                            print(f"Found product name for serial {serial_num}: {product_name}")
-                    except ValueError:
-                        pass
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                words = page.get_text("words")
+                
+                # Group words by rows (similar y-coordinates)
+                rows = {}
+                for word in words:
+                    x0, y0, x1, y1, text, block_no, line_no, word_no = word
+                    y_key = round(y0, 1)
+                    if y_key not in rows:
+                        rows[y_key] = []
+                    rows[y_key].append({
+                        'x0': x0,
+                        'y0': y0,
+                        'x1': x1,
+                        'y1': y1,
+                        'text': text
+                    })
+                
+                # Find header row to identify column positions
+                header_row = None
+                header_y = None
+                for y_key in sorted(rows.keys()):
+                    row_words = rows[y_key]
+                    row_text = ' '.join([w['text'] for w in row_words])
+                    if 'Description of Goods' in row_text or 'Sl No.' in row_text:
+                        header_row = row_words
+                        header_y = y_key
+                        break
+                
+                if not header_row:
+                    continue
+                
+                # Identify column positions
+                col_positions = {}
+                for word in header_row:
+                    text = word['text'].lower()
+                    x_pos = word['x0']
+                    if 'sl' in text or 'no.' in text:
+                        col_positions['serial'] = x_pos
+                    elif 'description' in text:
+                        col_positions['description'] = x_pos
+                    elif 'quantity' in text or 'qty' in text:
+                        col_positions['quantity'] = x_pos
+                    elif 'hsn' in text or 'sac' in text:
+                        col_positions['hsn'] = x_pos
+                    elif 'rate' in text:
+                        col_positions['rate'] = x_pos
+                    elif 'amount' in text:
+                        col_positions['amount'] = x_pos
+                
+                # Calculate description column end boundary
+                description_end_x = None
+                if col_positions.get('hsn'):
+                    description_end_x = col_positions['hsn']
+                elif col_positions.get('quantity'):
+                    description_end_x = col_positions['quantity']
+                elif col_positions.get('rate'):
+                    description_end_x = col_positions['rate']
+                
+                # Find Total row (end of product table)
+                total_y = None
+                for y_key in sorted(rows.keys()):
+                    if y_key <= header_y:
+                        continue
+                    row_words = rows[y_key]
+                    row_text = ' '.join([w['text'] for w in row_words]).upper()
+                    if 'TOTAL' in row_text:
+                        if 'CGST' not in row_text and 'SGST' not in row_text and 'IGST' not in row_text:
+                            total_y = y_key
+                            break
+                
+                # Process rows to extract complete product names
+                current_product = None
+                for y_key in sorted(rows.keys()):
+                    if y_key <= header_y:
+                        continue
+                    if total_y and y_key >= total_y:
+                        break
+                    
+                    row_words = rows[y_key]
+                    
+                    # Check if this row starts with a serial number (new product)
+                    serial_word = None
+                    for word in row_words:
+                        if word['x0'] < col_positions.get('description', 100):
+                            if word['text'].strip().replace('.', '').isdigit() and len(word['text'].strip()) <= 3:
+                                serial_word = word
+                                break
+                    
+                    if serial_word:
+                        # Save previous product
+                        if current_product:
+                            serial = current_product['serial']
+                            if serial not in product_names:
+                                # Sort description words by y then x
+                                current_product['description_words'].sort(key=lambda w: (w['y'], w['x']))
+                                product_name = ' '.join([w['text'] for w in current_product['description_words']]).strip()
+                                product_name = re.sub(r'\s+', ' ', product_name).strip()
+                                product_names[serial] = product_name
+                                print(f"Extracted complete product name for serial {serial}: {product_name}")
+                        
+                        # Start new product
+                        try:
+                            serial = int(float(serial_word['text'].strip()))
+                            current_product = {
+                                'serial': serial,
+                                'description_words': []
+                            }
+                        except ValueError:
+                            current_product = None
+                    
+                    # Collect description words for current product
+                    if current_product:
+                        for word in row_words:
+                            x_pos = word['x0']
+                            text = word['text'].strip()
+                            
+                            # Description column - collect all words before next column
+                            if col_positions.get('description') and x_pos >= col_positions['description']:
+                                if description_end_x and x_pos >= description_end_x:
+                                    continue
+                                
+                                if text and text not in ['Description', 'Goods', 'of']:
+                                    # Skip serial numbers
+                                    if text.replace('.', '').isdigit() and len(text.strip()) <= 3 and x_pos < col_positions.get('description', 100):
+                                        continue
+                                    # Skip footer keywords
+                                    skip_words = ['Bill', 'Details', 'Ref', 'Days', 'CGST', 'SGST', 'OUTPUT', 'Total', 'Round', 'Off', 'NOS', 'PCS']
+                                    if any(skip_word.lower() in text.lower() for skip_word in skip_words):
+                                        continue
+                                    current_product['description_words'].append({
+                                        'text': text,
+                                        'x': x_pos,
+                                        'y': word['y0']
+                                    })
+                
+                # Save last product
+                if current_product:
+                    serial = current_product['serial']
+                    if serial not in product_names:
+                        current_product['description_words'].sort(key=lambda w: (w['y'], w['x']))
+                        product_name = ' '.join([w['text'] for w in current_product['description_words']]).strip()
+                        product_name = re.sub(r'\s+', ' ', product_name).strip()
+                        product_names[serial] = product_name
+                        print(f"Extracted complete product name for serial {serial}: {product_name}")
+            
+            doc.close()
             
             # Create final items with mapped quantities
             for serial, quantity in quantity_mappings.items():
