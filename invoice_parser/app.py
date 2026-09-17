@@ -81,6 +81,118 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
         print(f"PyMuPDF extraction error: {e}")
         return ""
 
+def extract_words_with_coordinates(pdf_bytes: bytes) -> list:
+    """Extract words with their coordinates from PDF using PyMuPDF"""
+    words = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            # Extract words with their coordinates
+            # format: (x0, y0, x1, y1, word, block_no, line_no, word_no)
+            page_words = page.get_text("words")
+            
+            for word_data in page_words:
+                x0, y0, x1, y1, word, block_no, line_no, word_no = word_data
+                words.append({
+                    'x0': x0,
+                    'y0': y0,
+                    'x1': x1,
+                    'y1': y1,
+                    'word': word,
+                    'page': page_num,
+                    'line': line_no
+                })
+        
+        doc.close()
+        print(f"Extracted {len(words)} words with coordinates")
+        return words
+        
+    except Exception as e:
+        print(f"Error extracting words with coordinates: {e}")
+        return []
+
+def identify_quantity_column(words: list) -> float:
+    """Identify the x-coordinate of the Quantity column by finding 'Quantity' header"""
+    for word_data in words:
+        word = word_data['word'].upper()
+        if 'QUANTITY' in word or 'QTY' in word:
+            # Return the x-coordinate of the Quantity header
+            x_center = (word_data['x0'] + word_data['x1']) / 2
+            print(f"Found Quantity header at x-coordinate: {x_center}")
+            return x_center
+    print("Quantity header not found, using default")
+    return None
+
+def extract_quantities_by_coordinate(words: list, quantity_x: float) -> dict:
+    """Extract quantities by finding numbers near the Quantity column x-coordinate"""
+    quantities = {}
+    
+    for word_data in words:
+        word = word_data['word']
+        x_center = (word_data['x0'] + word_data['x1']) / 2
+        y_center = (word_data['y0'] + word_data['y1']) / 2
+        
+        # Check if this word is near the Quantity column (within 30 pixels)
+        if quantity_x and abs(x_center - quantity_x) < 30:
+            # Check if it's a number (potential quantity)
+            if re.match(r'^\d+\.?\d*$', word):
+                try:
+                    qty_val = float(word)
+                    # Quantities are typically 1-999
+                    if 1 <= qty_val <= 999:
+                        quantities[y_center] = qty_val
+                        print(f"Found quantity {qty_val} at y-coordinate: {y_center}")
+                except ValueError:
+                    pass
+    
+    print(f"Extracted {len(quantities)} quantities by coordinate")
+    return quantities
+
+def identify_product_rows(words: list) -> dict:
+    """Identify product rows by finding serial numbers and their y-coordinates"""
+    product_rows = {}
+    
+    for word_data in words:
+        word = word_data['word']
+        y_center = (word_data['y0'] + word_data['y1']) / 2
+        
+        # Check if this word is a serial number (1, 2, 3, etc.)
+        if re.match(r'^\d+$', word):
+            try:
+                serial_num = int(word)
+                if 1 <= serial_num <= 99:
+                    product_rows[y_center] = serial_num
+                    print(f"Found serial {serial_num} at y-coordinate: {y_center}")
+            except ValueError:
+                pass
+    
+    print(f"Found {len(product_rows)} product rows")
+    return product_rows
+
+def map_quantities_to_products(quantities: dict, product_rows: dict) -> dict:
+    """Map quantities to products based on y-coordinate proximity"""
+    mappings = {}
+    
+    for qty_y, qty_val in quantities.items():
+        # Find the nearest product row
+        nearest_serial = None
+        min_distance = float('inf')
+        
+        for product_y, serial in product_rows.items():
+            distance = abs(qty_y - product_y)
+            if distance < min_distance and distance < 30:  # Within 30 pixels
+                min_distance = distance
+                nearest_serial = serial
+        
+        if nearest_serial:
+            mappings[nearest_serial] = qty_val
+            print(f"Mapped quantity {qty_val} to serial {nearest_serial} (distance: {min_distance})")
+    
+    print(f"Mapped {len(mappings)} quantities to products")
+    return mappings
+
 class InvoiceParser:
     def __init__(self):
         pass
@@ -398,230 +510,88 @@ class InvoiceParser:
         return result
     
     def extract_items_from_pdf_coordinates(self, pdf_bytes: bytes) -> List[Dict]:
-        """Extract ONLY product_name, quantity, and free status using Sl No. + coordinates"""
+        """Extract items using PyMuPDF word coordinates to identify Quantity column"""
+        print("Starting coordinate-based extraction...")
         items = []
+        
         try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            # Extract words with coordinates
+            words = extract_words_with_coordinates(pdf_bytes)
+            if not words:
+                print("No words extracted from PDF")
+                return items
             
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                words = page.get_text("words")
-                
-                print(f"Page {page_num}: Found {len(words)} words")
-                
-                # Group words by rows (similar y-coordinates)
-                rows = {}
-                for word in words:
-                    x0, y0, x1, y1, text, block_no, line_no, word_no = word
-                    # Round y-coordinate to group words on same line
-                    y_key = round(y0, 1)
-                    if y_key not in rows:
-                        rows[y_key] = []
-                    rows[y_key].append({
-                        'x0': x0,
-                        'y0': y0,
-                        'x1': x1,
-                        'y1': y1,
-                        'text': text
+            # Identify Quantity column
+            quantity_x = identify_quantity_column(words)
+            if not quantity_x:
+                print("Could not identify Quantity column")
+                return items
+            
+            # Extract quantities by coordinate
+            quantities = extract_quantities_by_coordinate(words, quantity_x)
+            if not quantities:
+                print("No quantities extracted")
+                return items
+            
+            # Identify product rows (serial numbers)
+            product_rows = identify_product_rows(words)
+            if not product_rows:
+                print("No product rows identified")
+                return items
+            
+            # Map quantities to products
+            quantity_mappings = map_quantities_to_products(quantities, product_rows)
+            
+            # Extract product names using text-based method but use mapped quantities
+            text = extract_text_from_pdf_bytes(pdf_bytes)
+            if not text:
+                print("Could not extract text for product names")
+                return items
+            
+            # Extract product names from text
+            lines = text.split('\n')
+            product_names = {}
+            
+            for line in lines:
+                line = line.strip()
+                parts = line.split()
+                if parts and parts[0].replace('.', '').replace(',', '').isdigit():
+                    try:
+                        serial_num = int(float(parts[0].replace(',', '')))
+                        if 1 <= serial_num <= 99:
+                            product_name = ' '.join(parts[1:]).strip()
+                            # Clean up product name
+                            product_name = re.sub(r'\(cid:\d+\)', '', product_name).strip()
+                            product_name = re.sub(r'\b\d{8}\b', '', product_name).strip()
+                            product_names[serial_num] = product_name
+                            print(f"Found product name for serial {serial_num}: {product_name}")
+                    except ValueError:
+                        pass
+            
+            # Create final items with mapped quantities
+            for serial, quantity in quantity_mappings.items():
+                if serial in product_names:
+                    product_name = product_names[serial]
+                    # Check for FREE
+                    is_free = 'FREE' in product_name.upper()
+                    if is_free:
+                        product_name = product_name.replace('FREE', '').strip()
+                    
+                    items.append({
+                        'product_name': product_name,
+                        'quantity': int(quantity),
+                        'free': is_free
                     })
-                
-                # Find header row to identify column positions
-                header_row = None
-                header_y = None
-                for y_key in sorted(rows.keys()):
-                    row_words = rows[y_key]
-                    row_text = ' '.join([w['text'] for w in row_words])
-                    if 'Description of Goods' in row_text or 'Sl No.' in row_text:
-                        header_row = row_words
-                        header_y = y_key
-                        print(f"Found header row at y={y_key}: {row_text}")
-                        break
-                
-                if not header_row:
-                    print("No header row found, skipping coordinate extraction")
-                    continue
-                
-                # Find Total row (end of product table)
-                total_y = None
-                for y_key in sorted(rows.keys()):
-                    if y_key <= header_y:
-                        continue
-                    row_words = rows[y_key]
-                    row_text = ' '.join([w['text'] for w in row_words]).upper()
-                    # Look for Total row that's NOT CGST/SGST
-                    if 'TOTAL' in row_text:
-                        # Check if this is a tax total row (CGST/SGST) or the main Total row
-                        if 'CGST' not in row_text and 'SGST' not in row_text and 'IGST' not in row_text:
-                            total_y = y_key
-                            print(f"Found Total row at y={y_key}: {row_text}")
-                            break
-                # Also check for other end-of-table markers
-                if not total_y:
-                    for y_key in sorted(rows.keys()):
-                        if y_key <= header_y:
-                            continue
-                        row_words = rows[y_key]
-                        row_text = ' '.join([w['text'] for w in row_words]).upper()
-                        if 'BILL DETAILS' in row_text or 'OUTPUT' in row_text or 'DECLARATION' in row_text:
-                            total_y = y_key
-                            print(f"Found end-of-table marker at y={y_key}: {row_text}")
-                            break
-                
-                # Identify column x-positions from header
-                col_positions = {}
-                for word in header_row:
-                    text = word['text'].lower()
-                    x_pos = word['x0']
-                    if 'sl' in text or 'no.' in text:
-                        col_positions['serial'] = x_pos
-                    elif 'description' in text:
-                        col_positions['description'] = x_pos
-                    elif 'quantity' in text or 'qty' in text:
-                        col_positions['quantity'] = x_pos
-                    elif 'hsn' in text or 'sac' in text:
-                        col_positions['hsn'] = x_pos
-                    elif 'rate' in text:
-                        col_positions['rate'] = x_pos
-                    elif 'amount' in text:
-                        col_positions['amount'] = x_pos
-                
-                print(f"Column positions: {col_positions}")
-                
-                # Calculate description column end boundary (before HSN/SAC or Quantity column)
-                description_end_x = None
-                if col_positions.get('hsn'):
-                    description_end_x = col_positions['hsn']
-                elif col_positions.get('quantity'):
-                    description_end_x = col_positions['quantity']
-                elif col_positions.get('rate'):
-                    description_end_x = col_positions['rate']
-                
-                print(f"Description column ends before x={description_end_x}")
-                
-                # Process data rows (after header, before Total)
-                current_item = None
-                for y_key in sorted(rows.keys()):
-                    if y_key <= header_y:
-                        continue
-                    if total_y and y_key >= total_y:
-                        print(f"Reached Total row at y={y_key}, stopping product table processing")
-                        break
-                    
-                    row_words = rows[y_key]
-                    row_text = ' '.join([w['text'] for w in row_words])
-                    
-                    # Check if this row starts with a serial number (new product row)
-                    serial_word = None
-                    for word in row_words:
-                        if word['x0'] < col_positions.get('description', 100):
-                            if word['text'].strip().replace('.', '').isdigit() and len(word['text'].strip()) <= 3:
-                                serial_word = word
-                                break
-                    
-                    if serial_word:
-                        # Save previous item if exists
-                        if current_item:
-                            # Combine description lines in natural reading order
-                            # Sort by y (top-to-bottom) then by x (left-to-right) within each product
-                            if current_item['description_words']:
-                                current_item['description_words'].sort(key=lambda w: (w['y'], w['x']))
-                                product_name = ' '.join([w['text'] for w in current_item['description_words']]).strip()
-                                # Clean up product name
-                                product_name = re.sub(r'\s+', ' ', product_name).strip()
-                                
-                                # Only save if we have a product name and quantity
-                                if product_name and current_item.get('quantity'):
-                                    items.append({
-                                        'product_name': product_name,
-                                        'quantity': current_item['quantity'],
-                                        'free': current_item.get('free', False)
-                                    })
-                                    print(f"Saved item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
-                        
-                        # Start new item
-                        current_item = {
-                            'serial': serial_word['text'].strip(),
-                            'description_words': [],
-                            'quantity': None,
-                            'free': False
-                        }
-                    
-                    # Extract data from columns
-                    if current_item:
-                        for word in row_words:
-                            x_pos = word['x0']
-                            text = word['text'].strip()
-                            
-                            # Description column - collect all words BEFORE HSN/SAC, Quantity, Rate, Amount
-                            # Use description column position and stop before next column
-                            if col_positions.get('description') and x_pos >= col_positions['description']:
-                                # Stop if we've reached the next column (HSN/SAC, Quantity, Rate, Amount)
-                                if description_end_x and x_pos >= description_end_x:
-                                    continue
-                                
-                                if text and text not in ['Description', 'Goods', 'of']:
-                                    # Skip serial numbers (1, 2, 3, etc.) ONLY if they're in the serial column
-                                    if text.replace('.', '').isdigit() and len(text.strip()) <= 3 and x_pos < col_positions.get('description', 100):
-                                        print(f"  Skipped serial number: {text}")
-                                        continue
-                                    # Skip footer/header keywords
-                                    skip_words = ['Bill', 'Details', 'Ref', 'Days', 'CGST', 'SGST', 'OUTPUT', 'Total', 'Round', 'Off']
-                                    if any(skip_word.lower() in text.lower() for skip_word in skip_words):
-                                        print(f"  Skipped footer word: {text}")
-                                        continue
-                                    # Collect word with coordinates for later sorting
-                                    current_item['description_words'].append({
-                                        'text': text,
-                                        'x': x_pos,
-                                        'y': word['y0']
-                                    })
-                                    print(f"  Collected description word: {text} at x={x_pos}, y={word['y0']}")
-                                    if 'FREE' in text.upper():
-                                        current_item['free'] = True
-                            
-                            # Quantity column - extract ONLY from quantity column (earlier working logic)
-                            elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 30:
-                                if text:
-                                    # Check if it's a number (quantity)
-                                    qty_match = re.search(r'(\d+\.?\d*)', text)
-                                    if qty_match:
-                                        try:
-                                            qty_val = float(qty_match.group(1))
-                                            if 0 < qty_val < 10000:
-                                                current_item['quantity'] = int(qty_val)
-                                                print(f"Found quantity: {qty_val}")
-                                        except ValueError:
-                                            pass
-                
-                # Save last item
-                if current_item:
-                    # Combine description lines in natural reading order
-                    if current_item['description_words']:
-                        current_item['description_words'].sort(key=lambda w: (w['y'], w['x']))
-                        product_name = ' '.join([w['text'] for w in current_item['description_words']]).strip()
-                        product_name = re.sub(r'\s+', ' ', product_name).strip()
-                        
-                        if product_name and current_item.get('quantity'):
-                            items.append({
-                                'product_name': product_name,
-                                'quantity': current_item['quantity'],
-                                'free': current_item.get('free', False)
-                            })
-                            print(f"Saved last item: {product_name} - Qty: {current_item['quantity']} - FREE: {current_item.get('free', False)}")
+                    print(f"Created item: {product_name} - Qty: {quantity} - FREE: {is_free}")
             
-            doc.close()
-            
-            print(f"Total items extracted: {len(items)}")
-            for item in items:
-                print(f"  - {item['product_name']} (Qty: {item['quantity']}, FREE: {item['free']})")
-            
+            print(f"Coordinate-based extraction completed: {len(items)} items")
             return items
             
         except Exception as e:
-            print(f"Coordinate extraction error: {e}")
+            print(f"Error in coordinate-based extraction: {e}")
             import traceback
             traceback.print_exc()
-            return []
+            return items
 
     def extract_items_from_text(self, text: str) -> List[Dict]:
         """Extract items from text - optimized for this invoice format with multi-line support"""
