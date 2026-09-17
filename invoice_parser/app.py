@@ -528,16 +528,16 @@ class InvoiceParser:
                     
                     # Extract data from columns
                     if current_item:
-                        # Sort words by x-position WITHIN THIS ROW only (not globally)
-                        # This preserves left-to-right order within each row
-                        sorted_words = sorted(row_words, key=lambda w: w['x0'])
+                        # Group description words by row (y-coordinate) and sort rows top-to-bottom
+                        # Then sort words left-to-right within each row
+                        # This preserves natural reading order: LEFT→RIGHT and TOP→BOTTOM
                         
-                        for word in sorted_words:
+                        description_words = []
+                        for word in row_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column - collect all words in natural reading order
-                            # Use column position to identify description words, but preserve their order
+                            # Description column - collect all words
                             if col_positions.get('description') and abs(x_pos - col_positions['description']) < 80:
                                 if text and text not in ['Description', 'Goods', 'of']:
                                     # Skip serial numbers (1, 2, 3, etc.) ONLY if they're in the serial column
@@ -549,9 +549,12 @@ class InvoiceParser:
                                     if any(skip_word.lower() in text.lower() for skip_word in skip_words):
                                         print(f"  Skipped footer word: {text}")
                                         continue
-                                    # Add word to description in natural order
-                                    current_item['description_lines'].append(text)
-                                    print(f"  Added description word at x={x_pos}: {text}")
+                                    # Collect word with its y-coordinate for row ordering
+                                    description_words.append({
+                                        'text': text,
+                                        'x': x_pos,
+                                        'y': word['y0']
+                                    })
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
                             
@@ -568,6 +571,14 @@ class InvoiceParser:
                                                 print(f"Found quantity: {qty_val}")
                                         except ValueError:
                                             pass
+                        
+                        # Sort description words: first by y (top-to-bottom), then by x (left-to-right)
+                        # This preserves natural reading order
+                        if description_words:
+                            description_words.sort(key=lambda w: (w['y'], w['x']))
+                            for word_data in description_words:
+                                current_item['description_lines'].append(word_data['text'])
+                                print(f"  Added description word in reading order: {word_data['text']}")
                 
                 # Save last item
                 if current_item:
