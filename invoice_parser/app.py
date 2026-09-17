@@ -343,7 +343,7 @@ class InvoiceParser:
             return None
     
     def parse_invoice(self, pdf_bytes: bytes, products: List[Dict]) -> Dict:
-        """Parse single invoice PDF from bytes"""
+        """Parse single invoice PDF from bytes using coordinate-based extraction"""
         result = {
             'success': False,
             'invoice_number': None,
@@ -355,7 +355,7 @@ class InvoiceParser:
         }
         
         try:
-            # Extract text using new fitz-based method with validation
+            # Extract text for metadata
             text = extract_text_from_pdf_bytes(pdf_bytes)
             extraction_method = 'pymupdf_stream'
             
@@ -368,18 +368,19 @@ class InvoiceParser:
             result['invoice_date'] = self.extract_invoice_date(text)
             result['retailer_name'] = self.extract_retailer_name(text)
             
-            # Use text-based extraction (more reliable for this invoice format)
-            print("Attempting text-based extraction...")
-            items = self.extract_items_from_text(text)
-            result['extraction_method'] = f'{extraction_method}_text_based'
+            # Use coordinate-based extraction as primary method (as requested by user)
+            print("Using coordinate-based extraction for quantities...")
+            items = self.extract_items_from_pdf_coordinates(pdf_bytes)
+            result['extraction_method'] = f'{extraction_method}_coordinate_based'
             
             if not items:
-                # Fallback to coordinate-based extraction if text extraction fails
-                print("Text extraction returned no items, falling back to coordinate-based extraction")
-                items = self.extract_items_from_pdf_coordinates(pdf_bytes)
-                result['extraction_method'] = f'{extraction_method}_coordinate_based'
+                # Fallback to text-based extraction if coordinate extraction fails
+                print("Coordinate extraction returned no items, falling back to text-based extraction")
+                items = self.extract_items_from_text(text)
+                result['extraction_method'] = f'{extraction_method}_text_based'
             else:
-                print(f"Text extraction successful, found {len(items)} items")
+                print(f"Coordinate extraction successful, found {len(items)} items")
+            
             result['items'] = items
             
             # Match products
@@ -391,6 +392,8 @@ class InvoiceParser:
         except Exception as e:
             result['error'] = str(e)
             print(f"Error parsing invoice: {e}")
+            import traceback
+            traceback.print_exc()
         
         return result
     
