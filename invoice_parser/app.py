@@ -528,32 +528,34 @@ class InvoiceParser:
                     
                     # Extract data from columns
                     if current_item:
-                        # Sort words by x-position to ensure correct left-to-right order
+                        # Sort words by x-position WITHIN THIS ROW only (not globally)
+                        # This preserves left-to-right order within each row
                         sorted_words = sorted(row_words, key=lambda w: w['x0'])
                         
                         for word in sorted_words:
                             x_pos = word['x0']
                             text = word['text'].strip()
                             
-                            # Description column - collect all words EXCEPT serial numbers
-                            # Tighter tolerance to avoid picking up words from other columns
-                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 50:
+                            # Description column - collect all words in natural reading order
+                            # Use column position to identify description words, but preserve their order
+                            if col_positions.get('description') and abs(x_pos - col_positions['description']) < 80:
                                 if text and text not in ['Description', 'Goods', 'of']:
-                                    # Skip serial numbers (1, 2, 3, etc.)
-                                    if text.replace('.', '').isdigit() and len(text.strip()) <= 3:
-                                        print(f"  Skipped serial number in description: {text}")
+                                    # Skip serial numbers (1, 2, 3, etc.) ONLY if they're in the serial column
+                                    if text.replace('.', '').isdigit() and len(text.strip()) <= 3 and x_pos < col_positions.get('description', 100):
+                                        print(f"  Skipped serial number: {text}")
                                         continue
                                     # Skip footer/header keywords
                                     skip_words = ['Bill', 'Details', 'Ref', 'Days', 'CGST', 'SGST', 'OUTPUT', 'Total', 'Round', 'Off']
                                     if any(skip_word.lower() in text.lower() for skip_word in skip_words):
                                         print(f"  Skipped footer word: {text}")
                                         continue
+                                    # Add word to description in natural order
                                     current_item['description_lines'].append(text)
                                     print(f"  Added description word at x={x_pos}: {text}")
                                     if 'FREE' in text.upper():
                                         current_item['free'] = True
                             
-                            # Quantity column - extract ONLY from quantity column
+                            # Quantity column - extract ONLY from quantity column (UNCHANGED)
                             elif col_positions.get('quantity') and abs(x_pos - col_positions['quantity']) < 30:
                                 if text:
                                     # Check if it's a number (quantity)
